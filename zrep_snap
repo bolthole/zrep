@@ -109,6 +109,28 @@ list_autosnaps(){
 	# Okay to just check first few digits though
 }
 
+# User entrypoint. Part of pair: snaponly, sendonly
+# Just makes snapshot. 
+zrep_snaponly(){
+	typeset srcfs
+
+	while [[ "$1" != "" ]] ; do
+		srcfs="$1" 
+		zrep_lock_fs $srcfs
+		if [[ $? -ne 0 ]] ; then
+			# this function is supposed to be coordinated by user
+			# therefore, if something else is competing,
+			# coordination has failed. no retry.
+			zrep_errquit zrep snaponly failed for $srcfs: cannot get lock
+			
+		fi
+
+		makesnap $srcfs ||zrep_errquit snaponly for $srcfs failed
+
+		zrep_unlock_fs $srcfs
+	done	
+}
+
 # 
 # creates next snapshot in sequence
 # consider holding lock here
