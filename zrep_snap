@@ -115,7 +115,7 @@ zrep_snaponly(){
 	typeset srcfs
 
 	while [[ "$1" != "" ]] ; do
-		srcfs="$1" 
+		srcfs="$1" ;shift
 		zrep_lock_fs $srcfs
 		if [[ $? -ne 0 ]] ; then
 			# this function is supposed to be coordinated by user
@@ -128,6 +128,7 @@ zrep_snaponly(){
 		makesnap $srcfs ||zrep_errquit snaponly for $srcfs failed
 
 		zrep_unlock_fs $srcfs
+		
 	done	
 }
 
