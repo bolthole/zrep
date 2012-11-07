@@ -7,8 +7,8 @@
 ####################
 # synctosnap: called by zrep_sync, if a specific snapshot is specified.
 #
-# This makes REMOTE side, match up with given local zrep_created snapshot.
-# ...  but it also makes our local-side snapshot naming coordinate with that.
+# This LOCAL side, *and*  REMOTE side, match up with local zrep_created 
+# snapshot.
 # 
 # Note that it uses zrep_lock_fs
 #
