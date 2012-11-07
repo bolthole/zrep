@@ -1,0 +1,247 @@
+########### zrep_vars
+
+# This should basically be included as common vars before all zrep stuff.
+# It contains all 'constant' definitions, as well as a few crucial
+# shared routines, such as lock handling ones.
+
+# These first three, are user tunables
+SSH=${SSH:-ssh}
+ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /path/to/zrep, if needed, for remote
+#ZREP_CREATE_FLAGS="-o whatever"   #Set for extra options on remote zfs create
+
+
+#########################################################################
+# Everyting else below here, should not be touched. First we have autodetect
+# routines, and then internal utilities such as locking functions.
+
+
+Z_LOCAL_HOST=`uname -n`
+Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
+
+
+# Capability for this  does not show in usage.
+# So, just tie this to MU6 related check,like HAS_SNAPPROPS
+PROPTYPES="local,received" 
+
+# dump the usage message, and check for capabilities
+# make sure we dont spew for non-root, so that "zrep status" works
+case `id` in
+	*\(root\))
+	zrep_checkfile=/var/run/zrep.check.$$
+	;;
+	*)
+	zrep_checkfile=/tmp/zrep.check.$$
+	;;
+esac
+
+
+zfs >$zrep_checkfile 2>&1 
+# Sigh. solaris 11 changes output yet again, there is no global usage msg,
+# which makes it much less efficient to parse.
+# So first 'if' clause is a bit of a hack.
+# Just assume has everything, if usage message is newer style
+
+if grep 'help' $zrep_checkfile >/dev/null ;then
+	Z_HAS_X=1	  # can use recv -x
+	Z_HAS_SNAPPROPS=1 # can set properties on snapshots
+	DEPTHCAP="-d 1" # limits "list -r"
+else
+	if grep 'receive.*-x' $zrep_checkfile >/dev/null ;then
+		Z_HAS_X=1	  # can use recv -x
+	else
+		Z_HAS_X=0
+	fi
+	if grep 'set.*snapshot' $zrep_checkfile >/dev/null ;then
+		Z_HAS_SNAPPROPS=1 # can set properties on snapshots
+	else
+		Z_HAS_SNAPPROPS=0
+		PROPTYPES="local"
+	fi
+	if grep 'list.*-d' $zrep_checkfile >/dev/null ;then
+		DEPTHCAP="-d 1" # limits "list -r"
+	else
+		DEPTHCAP=""
+		print WARNING: old ZFS version detected
+		print WARNING: You may not nest zrep managed filesystems
+	fi
+fi
+
+if ((Z_HAS_X)) ; then
+	Z_HAS_O=1  # can recv use -o option
+else
+	Z_HAS_O=0
+fi
+rm $zrep_checkfile
+
+
+Z_LOCK_RETRY=${Z_LOCK_RETRY:-10}  # default 10 second  retry, 1 per sec
+Z_SAVE_COUNT=${Z_SAVE_COUNT:-5}
+Z_GLOBAL_LOCKFILE=/var/run/zrep.lock
+
+if [[ "$Z_GLOBAL_PID" == "" ]] ; then
+	export Z_GLOBAL_PID=$$
+fi
+
+Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
+# if your zfs isnt new enough, and you like to live dangerously, 
+# you can skip setting holds by using this instead.
+# Although I may not have gotten around to using this in the code either!
+#Z_SETHOLD="echo skipping zfs hold on"
+
+
+
+
+# return 0 if "we" are holding lock, 1 otherwise
+# Note that we check for "us, OR our global parent", if different
+#
+zrep_has_global_lock(){
+	lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
+	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
+	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
+		if [[ "$lockpid" != "$$" ]] ; then
+			return 1
+		fi
+	fi
+
+	return 0
+}
+
+
+
+#Note: it is an ERROR to call this if you already have lock
+#It is binary, not recursive ownership.
+zrep_get_global_lock(){
+	typeset retry_count=$Z_LOCK_RETRY
+
+	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+
+	# otherwise, deal with fail
+	# Check for dead old holder first.
+	# CANNOT CLEAN UP OURSELVES: race condition problems.
+	
+	while (( retry_count > 0 )); do
+		sleep 1
+		ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+		retry_count=$((retry_count-1))
+	done
+
+	print Failed to acquire global lock 
+	return 1
+}
+
+zrep_release_global_lock(){
+	if zrep_has_global_lock ; then
+		rm $Z_GLOBAL_LOCKFILE
+		return $?
+	else
+		print ERROR: zrep_release_global_lock called, but do not own lock
+		return 1
+	fi
+}
+
+# returns PID of zrep process holding a lock on filesystem, if there is one.
+# NOTE: prints "-" NOT "", if lock unheld
+zrep_fs_lock_pid(){
+	zfs get -H -o value zrep:lock-pid $1
+}
+zrep_has_fs_lock(){
+	typeset check=`zfs get -H -o value zrep:lock-pid $1`
+	if ((check == $$)) ; then
+	return 0
+	else
+	return 1
+	fi
+}
+
+# use global lock first (if not already), then
+# grab lock on individual fs
+# return 1 on fail, 0 on lock acquired
+# Note that it is an ERROR to call this, if you already have lock
+# Note2: if a dead process has lock, it will forcibly override and
+# acqure lock
+zrep_lock_fs(){
+	# global lock is slow. so do quickcheck first.
+	typeset check=`zrep_fs_lock_pid $1` newcheck
+	if [[ "$check" != "-" ]] ; then
+		# validate fs lock before giving up
+		ls -d /proc/$check >/dev/null 2>&1 && return 1
+	fi
+
+	zrep_get_global_lock  || return 1
+
+	# Double-check if needed, now that we have global lock
+	if [[ "$check" != "-" ]] ; then
+		newcheck=`zrep_fs_lock_pid $1`
+		if [[ "$newcheck" != "$check" ]] && [[ "$newcheck" != "-" ]]
+		then
+			# oops. someone else must have dealt with it.
+			# If they havent reset it to "-" then give up
+			zrep_release_global_lock
+			return 1
+		fi
+		print DEBUG: overiding stale lock on $1 from pid $check
+	fi
+	
+	zfs set zrep:lock-pid=$$ $1
+	zfs set zrep:lock-time=`date +%Y%m%d%H%M%S` $1
+	zrep_release_global_lock 
+}
+
+# release lock, if we have it.
+# Since this could be called by an exit cleanup routine blindly,
+# dont exit program if we dont have lock. But do return error
+zrep_unlock_fs(){
+	typeset lockpid=`zrep_fs_lock_pid $1`
+	if ((lockpid != $$)) ; then return 1; fi
+
+	#since "we" already have it locked, no need to get global lock first
+	zfs inherit zrep:lock-time $1
+	zfs inherit zrep:lock-pid $1
+
+	return 0
+}
+
+
+# Quit whole program with error status, outputting args to stderr
+# Release global lock if we are holding it
+#   Unless we're running in parallel batch mode
+#   I'll need to plan that out more carefully!
+#
+zrep_errquit(){
+	print Error: "$@" >/dev/fd/2
+
+	if zrep_has_global_lock ; then
+		if [[ "$$" -ne "$Z_GLOBAL_PID" ]] ; then
+			print EXTRA-ERROR: Running in child proc.
+			print 'Not sure whether to release global lock. NOT releasing!'
+			exit 1
+		else
+
+			zrep_release_global_lock
+		fi
+	fi
+	exit 1
+}
+
+# Optimization wrapper for ssh: if destination host is ourself, dont use ssh.
+# Just run the local command mentioned
+# Be careful about quotes here. In fact, try not to use any.
+# Usage:  zrep_ssh desthost  commands_for_ssh go_here
+zrep_ssh(){
+	typeset ssh_cmd
+	case "$1" in
+		localhost|$Z_LOCAL_HOST)
+			ssh_cmd=""
+			;;
+		*)
+			ssh_cmd="$SSH $1"
+			;;
+	esac
+	shift
+	$ssh_cmd "$@"
+}
+
+zrep_gettimeinseconds(){
+	# unfortunately, solaris date doesnt do '%s'
+	/usr/perl5/bin/perl -e 'print int(time);'
+}

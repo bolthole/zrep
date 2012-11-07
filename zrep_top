@@ -1,0 +1,83 @@
+#!/bin/ksh -p
+
+# For more detailed documentation, see zrep.txt or zrep.overview.txt
+ZREP_VERSION=0.8.4.hand-release
+
+######## start of included files from zrep_top here
+AWKinclude zrep_vars
+AWKinclude zrep_status
+AWKinclude zrep_snap
+AWKinclude zrep_sync
+AWKinclude zrep_failover
+
+######## zrep_top continues here
+
+usage(){
+	print zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
+	print in an ongoing basis.
+	print More documentation at a later date.
+	print "  Philip Brown, 2012"
+	print ""
+	print Simple usage summary:
+	print 'zrep (init|-i) ZFS/fs remotehost remoteZFSpool/fs'
+	print 'zrep (sync|-S) [-q seconds] ZFS/fs'
+	print 'zrep (sync|-S) [-q seconds] all'
+	print 'zrep (sync|-S) ZFS/fs@snapshot    -- temporary retroactive sync'
+	print 'zrep (status|-s) [ZFS/fs]'
+	print 'zrep (list|-l) [-v]'
+	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
+	print 'zrep (changeconfig|-C) ZFS/fs remotehost remoteZFSpool/fs'
+	print 'zrep failover [-L] ZFS/fs'
+	print 'zrep takeover [-L] ZFS/fs'
+	print 'zrep clear ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
+	print
+	print '   -q option says to Quietly ignore locked filesystems that have synced'
+	print '      more recently than the given amount of seconds'
+}
+
+case "$1" in
+	"")
+		usage
+		;;
+	clear)
+		shift
+		zrep_clear $1
+		;;
+	expire|-e)
+		shift
+		zrep_expire "$@"
+		;;
+	init|-i)
+		shift
+		zrep_init "$@"
+		;;
+	changeconfig|-C)
+		shift
+		zrep_changeconfig "$@"
+		;;
+	sync|-S)
+		shift
+		zrep_sync "$@"
+		;;
+	status|-s)
+		shift
+		zrep_status "$@"
+		;;
+	list|-l)
+		shift
+		zrep_list "$@"
+		;;
+	failover)
+		shift
+		zrep_failover "$@"
+		;;
+	takeover)
+		shift
+		zrep_takeover "$@"
+		;;
+	*)
+		usage
+		;;
+esac
+
+

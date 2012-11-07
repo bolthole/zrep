@@ -1,0 +1,359 @@
+################ zrep_snap
+# be sure to have included zrep_vars
+
+# This file contains routines related to 
+# "make new snapshot, using next sequence number".
+# So it thus includes all snap sequence related routines
+# It may contain "sync snapshot" related routines for now.
+# It also is definitive for the format of snapshot names
+# It also contains most "query status of snaps" type routines,
+#  such as "getlastsnapsent"
+#
+# Normal style for making a snapshot and syncing it:
+#   1.  create a snapshot.
+#   2.  sync it over
+#   3.  set "zrep:sent" on *snapshot*, with timestamp in seconds
+# Old-nasty-zfs compat mode:
+#   Step 3. Add/update "zrep:lastsent->snapname", and 
+#           "zrep:lastsenttime->timestamp",  on *filesystem*
+#
+######################################################################
+
+
+# By observation, 'zfs list' shows snapshots order of creation.
+# last listed, should be last in sequence.
+# But, dont take chances!!
+getlastsequence(){
+	typeset lastval
+	#remember, filesystems can have '_' in them
+	getlastsnap $1|sed 's/.*@zrep_\(......\).*/\1/'
+}
+
+# prints out last snapshot zrep created, going purely by sequence.
+# Note: "last created", which may or may NOT be "last successfully synced". 
+# This is basically "getallsnaps |tail -1"
+getlastsnap(){
+	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
+	   sed -n '/@zrep_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/'p |
+	   sort | tail -1
+}
+
+# Usage:   getlastsnapsent zpool/FSNAME
+getlastsnapsent(){
+	# arg.  more efficient if we can just return value directly,
+	# but i'm using backwards compat :(
+	typeset lastsent
+	lastsent=`zfs get  -H -o name -r -s local zrep:sent $1 |
+	   sort | tail -1`
+	if [[ "$lastsent" != "" ]] ; then
+		print $lastsent
+		return
+	fi
+
+	# Fallback method, for backwards compat with older ZFS code,
+	# since it cant set properties on snapshots
+	zfs get  -H -o value -s local zrep:lastsent $1
+}
+
+# outputs time in seconds, of when the last successful sync for the
+# filesystem was done. (in format compatible with zrep_gettimeinseconds() )
+#  Note that this is time of actual sync, not snapshot creation time.
+#
+# This unfortunately needs to be compatible with both new way, and
+# old-nasty-hack-way
+# 
+# In future, may take optional argument of which HOST to check 
+# sync with. But since I currently only suport one host per fs... oh well.
+# If never synced, will return 1, and print "-"
+#
+getlastsynctime(){
+	typeset fs lastsent senttime
+
+	if [[ "$1" == "" ]] ; then
+		zrep_errquit Internal error: no arg to getlastsynctime
+	fi
+	fs="$1"
+
+	# Deal with possibly upgraded system;
+	#   Check "lastsent", only as fallback.
+
+	# copy from getlastsnapsent, but only using newest method
+	lastsent=`zfs get  -H -o name -r -s local zrep:sent $fs |
+	   sort | tail -1`
+	senttime=`zfs get  -H -o value zrep:sent $lastsent`
+	if [[ "$senttime" != "-" ]] ; then print $senttime ; return 0; fi
+
+	# ooops. try fallback to nasty old zfs-compat style
+	senttime=`zfs get -H -o value zrep:lastsent $fs`
+	print $senttime
+	if [[ "$senttime" != "-" ]] ; then return 0; fi
+	return 1
+}
+
+#This is for synctosnap, and also zrep_expire
+getallsnaps(){
+	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
+	   sed -n '/@zrep_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/'p |
+	   sort
+}
+
+# list all snapshots of the given filesystem, that are made by this prog
+# arg: fs
+list_autosnaps(){
+	if [[ "$1" == "" ]] ; then
+		zrep_errquit "zrep internalerror: no arg for list_autosnaps"
+	fi
+ 	zfs list $DEPTHCAP -r -H -o name -t snapshot $1 |
+		grep '@zrep_[0-9a-f][0-9a-f]'
+	# Make sure this format matches other routines in here
+	# Okay to just check first few digits though
+}
+
+# 
+# creates next snapshot in sequence
+# consider holding lock here
+# Caller must have zrep lock on filesystem:
+#   we verify with zrep_has_fs_lock
+makesnap(){
+	typeset  check oldseq newseq="" newseqX newsnap
+
+	#sanity checks first!
+	check="`zfs get -H -o value zrep:src-host $1`"
+	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
+		print ERROR: we are not master host for $1 >/dev/fd/2
+		print master is $check, we are $Z_LOCAL_HOST  >/dev/fd/2
+		exit 1
+	fi
+
+	zrep_has_fs_lock $1
+	if [[ $? -ne 0 ]] ; then
+		print Internal error:  makesnap fail, no lock on $1 >/dev/fd/2
+		exit 1
+	fi
+
+	oldseq=`getlastsequence $1`
+	newseq=$((0x$oldseq))
+
+	newseqX=$(printf "%.6x" $(($newseq + 1))  )
+
+
+	#print DEBUG old=$oldseq new=$newseqX >/dev/fd/2
+	newsnap="$1@zrep_$newseqX"
+	
+	zfs snapshot $newsnap
+	if [[ $? -eq 0 ]] ; then
+		print  $newsnap; return 0
+	else
+		return 1
+	fi
+	
+}
+
+## This is the implentation for the "zrep clear" command
+## Purpose is to remove all zrep related hooks from a local filesystem. 
+##  (NOT delete it)
+## Will remove zrep snapshots and zfs zrep: properties
+zrep_clear(){
+	print "WARNING: Removing all zrep configs and snapshots from $1"
+	print Continuing in 10 seconds
+	sleep 10
+
+	print Destroying any zrep-related snapshots from $1
+	snaplist=`list_autosnaps $1`
+	for snap in $snaplist ; do
+		zfs destroy -r $snap
+	done
+
+	print Removing zrep-related properties from $1
+	proplist=`zfs get -H -o property all $1|grep zrep:`
+	for prop in $proplist ; do
+		zfs inherit $prop $1
+	done
+}
+
+## This is a special internal routine, used only by zrep_init.
+## call with "srcfs  errmsg1 errmsg2..."
+## It will REMOVE REMOTEFS if set in PROPERTIES!!
+clearquit(){
+	remhost=`zfs get -H -o value zrep:dest-host $1`
+	remfs=`zfs get -H -o value zrep:dest-fs $1`
+	if [[ $? -eq 0 ]] && [[ "$remhost" != "-" ]] && [[ "$remfs" != "-" ]]; then
+		zrep_ssh $remhost zfs destroy -r $remfs
+	fi
+
+	zrep_clear $1
+	shift
+	zrep_errquit "$@"
+}
+
+
+# Shared internal routine.
+# Set the to/from properties on a fs for zrep
+# Called by zrep_init  and zrep_changeconfig
+setfsconfigs(){
+	typeset srcfs="$1" desthost="$2" destfs="$3" fsname
+	if [[ "$destfs" == "" ]] ; then
+		zrep_errquit "zrep: no dest fs specified"
+	fi
+	zfs list $srcfs >/dev/null ||zrep_errquit "filesystem $srcfs must exist already"
+
+	fsname=${srcfs##*/}
+	case $destfs in
+		# Originally, I had this passthrough only if fsname was at end
+		# However,we must allow destfs to have different leaf name,
+		# for circumstances such as replication to same host
+		*/*)
+			:
+			;;
+		*)
+			# Only the pool name given. Let's make it explicit.
+			destfs=$destfs/$fsname
+			;;
+	esac
+
+	zfs set zrep:src-fs=$srcfs		$srcfs
+	zfs set zrep:src-host=$Z_LOCAL_HOST	$srcfs
+	zfs set zrep:dest-fs=$destfs		$srcfs
+	zfs set zrep:dest-host=$desthost	$srcfs
+	zfs set zrep:savecount=$Z_SAVE_COUNT	$srcfs
+}
+
+
+# Follow "initial set up" in workflow.txt
+# Some day, will allow init from pre-existing snaps< But not today!
+# Note that remote fs must share same stem name as source. (for now?)
+zrep_init(){
+	typeset srcfs="$1" desthost="$2" destfs="$3" fsname snap check vol=0
+	if [[ "$srcfs" == "" ]] ; then
+		zrep_errquit "zrep: no fs specified"
+	fi
+
+	#sanity checks
+	check="`zfs get -H -o value zrep:dest-fs $srcfs`"
+	if [[ "$check" != "-" ]] ; then
+		print "$srcfs is at least partially configured by zrep"
+		zrep_errquit "To re-initialize, first use zrep clear $srcfs"
+	fi
+	check="`zfs get -H -o value type $srcfs`"
+	if [[ "$check" == "volume" ]] ; then
+		vol=1
+		if ((! Z_HAS_O )) ; then
+			print "Sorry, your zfs is too old for zrep to handle volume initialization"
+			zrep_errquit "Please initialize volume target by hand, if you won't upgrade"
+		fi
+	fi
+	
+
+	print Setting properties on $srcfs
+	setfsconfigs $srcfs $desthost $destfs
+
+	#setfsconfigs may do some "smarts" to adjust value, so get it again.
+	destfs=`zfs get -H -o value zrep:dest-fs $srcfs`
+
+	if (( Z_HAS_O )) ; then
+		READONLYPROP="-o readonly=on"
+	else
+		READONLYPROP=""
+		print Ancient local version of ZFS detected.
+		print Creating destination filesystem as separate step
+		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $destfs || zrep_errquit "Cannot create $desthost:$destfs"
+	fi
+
+	snap="${srcfs}@zrep_000000"
+	print Creating snapshot $snap
+	zfs snapshot $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
+
+	# Note that we may not want to use -p for normal zrep syncs
+	# We also should not use -F for normal recv. See workflow.txt
+	# Note: we may have to reset readonly=on, if we used -p on send...
+	#
+	print Sending initial replication stream to $desthost:$destfs
+	if (( $Z_HAS_X )) ; then
+		# This is the nice, clean, modern codepath, to send
+		# zrep settings over automatically at first init
+		#
+		# But check to see if sending volume or filesystem first,
+		# and act appropriately
+		#
+		typeset MOUNTFILTER
+		if (( vol )) ; then
+			MOUNTFILTER=""
+		else
+			MOUNTFILTER="-x mountpoint"
+		fi
+
+		zfs send -p $snap |
+		  zrep_ssh $desthost zfs recv $MOUNTFILTER $READONLYPROP -F $destfs
+	else
+		## arg.. Patch your systems!!
+		# Doesn't support "recv -x mountpoint", so cant use -p in send
+		# This means we have to manually set props lower down as well.
+		zfs send $snap |
+		  zrep_ssh $desthost zfs recv $READONLYPROP -F $destfs
+	fi
+	if [[ $? -ne 0 ]] ; then
+		clearquit $srcfs "Error transferring $snap to $desthost:$destfs. Resetting"
+	fi
+
+	# Successful initial sync! Woo! okay record that, etc.
+	# ... after stupid old-zfs-compat junk, that is
+	if (( ! Z_HAS_X )) ; then
+		print Debug: Because you have old zfs support, setting remote properties by hand
+		zrep_ssh $desthost zfs set readonly=on $destfs	||
+			clearquit Could not set readonly for $desthost:$destfs
+
+		zrep_ssh $desthost zfs set zrep:src-fs=$srcfs $destfs
+		zrep_ssh $desthost zfs set zrep:src-host=$Z_LOCAL_HOST $destfs
+		zrep_ssh $desthost zfs set zrep:dest-fs=$destfs $destfs
+		zrep_ssh $desthost zfs set zrep:dest-host=$destfs $destfs
+		zrep_ssh $desthost zfs set zrep:savecount=$Z_SAVE_COUNT	$destfs
+
+	fi
+
+	if (( Z_HAS_SNAPPROPS )) ; then
+		typeset sentprop="zrep:sent=`date +%Y%m%d%H%M%S`"
+		zfs set $sentprop ${snap}
+	else
+		# Arg stupidold stuff cant set props on a snapshot
+		# So we have to manually set these on both sides also,
+		# "Just in case"
+		zfs set zrep:lastsent=${snap} $srcfs
+		zrep_ssh $desthost zfs set zrep:lastsent=${snap} $destfs
+	fi
+
+	# make sure the above ' set 's (sent, lastsent)
+	# match what zrep_sync() does !!!
+
+
+	# Note: we have to set master property NOW, not before,
+	# because "recv -x zrep:master" Does Not Work properly
+	# Also, it avoids things like "zrep sync all" from attempting
+	# to sync it before initial sync has been done.
+	# We don't even have to zrep_lock_fs until this is set
+	
+	zfs set zrep:master=yes	$srcfs
+
+	print Initialization copy of $srcfs to $desthost:$destfs complete
+
+}
+
+
+zrep_changeconfig(){
+	typeset srcfs="$1" desthost="$2" destfs="$3" check
+	if [[ "$srcfs" == "" ]] ; then
+		zrep_errquit "zrep: no fs specified"
+	fi
+
+	check=`getlastsnap $srcfs`
+	if [[ "$check" == "" ]] ; then
+		print "No pre-existing zrep snapshots found on $srcfs" >/dev/fd/2
+		print $srcfs is not initialized for zrep. cannot change config. >/dev/fd/2
+		zrep_errquit Use zrep init on $srcfs instead
+	fi
+
+	setfsconfigs $srcfs $desthost $destfs
+	
+}
+
+
+

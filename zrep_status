@@ -1,0 +1,145 @@
+###### zrep_status
+
+# be sure to have included zrep_vars
+
+# This file contains all "status" related routines.
+# It should be folded into final "zrep" script
+
+
+
+
+#
+#Give this a top level zrep registered filesystem, NOT snapshot.
+# Will print out various status points, such as last sync date.
+# Or if given no args, will print out sync date for all zrep mastered fs
+# Note that the date given is time of SNAPSHOT, not time sync completed.
+#
+zrep_status(){
+	typeset check fs date lastsnap
+
+	if [[ "$1" == "" ]] ; then
+		set -- `zrep_list_master`
+	fi
+
+	while [[ "$1" != "" ]] ; do
+		fs="$1"
+
+		check=`zfs get -H -o value zrep:dest-fs $fs`
+		if [[ "$check" == "-" ]] ; then
+			zrep_errquit "$fs is not a zrep registered filesystem"
+		fi
+
+		lastsnap=`getlastsnapsent $fs`
+		if [[ "$lastsnap" == "" ]] ; then
+			date="[NEVER]"
+			else
+		date=`zfs get -H -o value creation $lastsnap`
+		fi
+		printf "%-47s" $fs
+		print "last synced $date"
+		shift
+	done
+}
+
+
+# convenience function to list only local filesystems for which we are
+# zrep master for.
+# In contrast, zrep_list, lists ALL zrep registered filesystem, at the moment.
+# 
+# Annoyingly... it would be way faster if we could just stick with the
+# pure "zfs get" implementation, but we also need to deal with the zone
+# issue. When a single zfs filesystem is visible aross multiple zones,
+# we dont want them all thinking they are master
+#
+# Durn. Individual validation required.
+zrep_list_master(){
+	typeset srchost
+	for fs in `zfs get -H -o name -s local zrep:master "$@"` ; do
+		srchost=`zfs get -H -o value zrep:src-host $fs`
+		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
+			print $fs
+		fi
+	done
+}
+
+
+# Given ONE filesystem, print all zrep properties for it.
+# Note that this is internal routine. we do not validate input.
+list_verbose(){
+	print $1:
+	zfs get -H -o property,value -s $PROPTYPES all $1
+}
+
+
+# Usage
+# zrep_list [-v]
+# zrep_list [-L]
+# zrep_list [-v] fs1 fs2
+# list all zrep-initialized filesystems (NOT snapshots..)
+# If no specific fs listed, will show master, AND received filesystems,
+#    unless -L given
+# Normal output is one line per fs.
+#
+#  -v gives all properties of each filesystem
+#  Give only one of -L or -v 
+#
+# This works because we only set this property on the actual fs.
+# "source type" on snapshots for this property is "inherited" not local
+#  or "received"
+zrep_list(){
+	typeset fslist="" verbose=0
+	typeset printcmd="zfs get -H -o name -s $PROPTYPES zrep:dest-fs"
+
+	case $1 in
+		-v)
+		verbose=1
+		printcmd=list_verbose
+		shift
+		;;
+		-L)
+		printcmd="zrep_list_master"
+		shift
+		;;
+	esac
+
+
+
+	if [[ "$1" != "" ]] ; then
+		while [[ "$1" != "" ]] ; do
+			if zfs list -t filesystem $1 >/dev/null 2>&1 ; then
+				$printcmd $1
+			else
+				zrep_errquit "Expecting filesystem, but got $1"
+			fi
+			shift
+		done
+		return
+	fi
+
+	# Must be "list all" now. But which output format?
+
+	# if not verbose, we have a nice shortcut
+	if (( $verbose == 0))  ; then
+		$printcmd
+		return
+	fi
+
+
+	# oh well. have to step through them one by one now, to
+	# print out the properties associated with each zrep filesystem
+
+	fslist=`zfs get -H -o name -s $PROPTYPES zrep:dest-fs`
+
+	for fs in $fslist ; do
+		print ${fs}:
+		# sneaky cheat: only user-set properties will
+		# match these 'source' types. So "grep zrep:" is not
+		# neccessary. Although we may pick up other user-set values,
+		# but that is not neccessarily a bad thing
+		zfs get -H -o property,value -s $PROPTYPES all $fs
+		print ""
+	done
+	
+	
+}
+

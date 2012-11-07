@@ -1,0 +1,307 @@
+
+INTERNAL DOCUMENTATION
+
+  This file gives sample "workflows"  for presumed common activities of
+  users of the zrep replication program
+
+  However, this is used as a coding aid, to help me figure out
+    workflow INTERNAL to the PROGRAM
+
+high level operation types:
+  init   sync   clear  reconfig status failover
+
+
+*** Workflow for initial set up for filesystem "pool/fs on host1"
+      to be replicated to "host2pool" on host2
+
+    0. Check if filesystem already known by zrep. Quit if it is.
+       Quit if localfilesystem does not exist.
+
+    1. set zrep: properties on 
+    2. Create new remote fs, and set readonly flag.
+       (overwrite allows admins to handcreate fs with special options)
+    3. sync up.
+    Full details below:
+       
+
+    host1# zrep -i pool/fs host2 host2pool
+          ###alternative might allow pool/fs@snap
+	  ## important if machines have very slow link that requires
+	  ## being synced offline.
+
+	# note that unlike zfs send -I inc1 inc2,
+	#  zfs send fs@snap0 DOES NOT carry over all snapshots!
+	# just the one specified in the zfs send command!
+
+
+    ( ## need to get global lock here? Naw, creation of snap _0 can serve for that)
+    ( if fail, dont have lock so quit )
+
+    (creates snap pool/fs/@zrep_xxxx_xxx_0)
+
+    (goes and checks out host2)
+    ...(ssh host2 zfs create -o readonly=on pool2host/fs )
+    
+    ( zfs send pool/fs@zrep_xxx_xxx_0  |
+          zfs recv -F  host2pool/fs  )
+
+    (rename pool/fs@zrep_xxx to pool/fs@zrep_xxx_sent)
+      # Q: "Is renaming snap okay?"
+      # A: Note that future incrementals do not copy over/rename
+      # those snapshots on the other side!
+      # Think of it like renaming a file doesnt change access time.
+      # Plus, CAN do incremental from common base even if not same name.
+      # So it's okay to rename snap
+
+   oooo  Q: Do we create remote-side read-only?
+   oooo  A: can we sync further, if it remains read-only?
+   oooo  Yes we can. In which case, good safety measure is make
+   oooo  it read-only at creation-time
+
+*** Workflow for zrep to do zrep -S fs (sync of some fs)
+
+	- get list of latest snapshots for fs@zrep_xxxxx
+	       Check for multiple hosts? ugh. 
+	       For now, only allow single host per zrep fs. Get from
+	       zrep:dest-host property
+
+	- Verify that our machine is the zrep master for this fs
+
+	- lock somewhere in here
+
+	  + Check for command-line option, for
+	     "QUIETLY quit, if zrep is already running" ?
+	     But maybe should also have some kind of time limit,
+	     "only if lockfile is newer than X amount of time"?
+
+	-  identify most recent sent zrep snapshot. Use as incremental base.
+	- create new snapshot
+
+	- prepare for incremental send, then send
+	  Make sure to send -Ipb
+	      (use -F for recv? no, to avoid split-brain? see 'status')
+
+	  + optimize for "remote host is us" case, (skip ssh)
+
+	- rename the new snapshot, to xxx_sent, if successful.
+	  If NOT successful.. leave the snapshot around, just in case it
+	  is useful to user for some reason.
+
+	- do expires (see sub-function expire)
+	- release lock
+
+	THINGS TO WATCH OUT FOR:
+
+	x When constructing incremental, need to use
+	x  *most recent snapshot* (on remote side) as base.
+	x recv will fail otherwise.
+	x   EVEN IF recent remote snapshot not related to zrep !!
+	x It is technically possible to force, if you rollback remote
+	x to be at the base you wish to use. Presuming it exists on remote.
+
+*** Workflow for zrep to do zrep -S fs@snap_sent
+
+    - Special case for zrep sync! This is a shortcut for
+      ssh $remhost zfs rollback -r fs@snap_sent
+      with added local cleanup duties.
+
+      It is useful for "hey lets test out something on our remote host...
+      and also for debugging zrep :-}
+
+      
+      = print out a warning about deleting all newer remote snapshots...
+         sleep 10 seconds.. then do it
+	 + grab lock
+	 + ssh the command
+	 + .... Then have to do something about LOCAL "newer" snapshots?
+	    Delete or rename? 
+	    But... what if they WANT it to be temporary?
+	    So, not delete local snaphots .... 
+	    Must rename to not have _sent, though, so as to not mess up things.
+	      _somethingelse ??
+	- do expires (see sub-function expire)
+	 + release lock
+
+
+*** Workflow for zrep to do zrep -S all (sync of ALL fs)
+    (SEE ALSO zrep -P -S, below)
+    (otherwise...)
+    - Iterate through,
+       for z in [list zfs filesystems]
+         zrep -S $z
+       done
+
+
+*** Workflow for   zrep -P x -S all
+
+    - Parallel-ize "sync all" operation
+      + First, grab global lock. 
+      + make list of needed filesystems
+      + make use of secondary lockfile. but what...
+        /var/run/zrep.lock.batch$$ ($$== PARENT/controller pid)
+      
+
+*** Workflow for zrep status (fs)
+
+    (For each fs)
+    - IF and only if zrep:destfs present (ie: zrep configured fs)
+       (easy way: go through "zfs get -s local all" !!)
+      + get list of all relevant snapshots
+      + print out if "paused" ....
+      + print out most recent synced snapshot, and creation time
+      + print out what savecount will be
+
+      + need to have some kind of "error flag" if remote sync fails?
+        Should be different from if we chose to force remote
+	side to a specific snapshot, and so have leftover snapshots?
+
+
+
+	************************************************
+
+*** Workflow for zrep to do  zrep failover pool/fs
+
+   General failover/takeover comments:
+    failover and takeover commands, are paired.
+   Normally, automated process uses ssh to remote host, to call
+   the "other" of the pair.
+    'failover' actions need to come before takeover, for safety.
+
+
+	Both of them just reset the various properties of the filesystem(s)
+	And rename snapshots if needed.
+	They dont actually make data flow anywhere.
+
+	-L means "local only". Will not attempt to contact other side.
+
+	In normal conditions we do need to identify last common snapshot,
+	and make sure it is same for both sides.
+	Identify sequence number?
+
+    ***	zrep failover
+    	 (this is run from the 'master' side, to put into slave mode)
+
+	+ grab fs lock
+
+	+ set readonly on main fs
+	+ reverse zrep:dest-fs, zrep:src-fs props on fs
+
+	+ if -L NOT used, attempt to sync first, with a new sync/snap.
+	    (with -F ? maybe not)
+
+	
+	+ if -L used, rollback to most recent 'sent'
+
+	+ release fs lock
+
+	+ ssh other side, trigger zrep takeover -L
+	
+	  
+
+*** zrep takeover
+	   'takeover' is matching pair to zrep failover.
+	- Handles making current system active master.
+
+	  In emergency situations, equivalent to
+	    "Just gimme disk access NOW...
+	     worry about resync later"
+	  However, also gets used as part of "normal" failover.
+
+	- Need to try REALLY REALLY REALLY hard, to avoid
+	  split-brain problem if "force" option used.
+	  Because of this, take OUT, the -F option to our normal zfs recv.
+	  In that case, as soon as we make any change
+	  (such as creating a first snapshot on OUR side),
+	  any attempted sync from other side will fail.
+
+	+ if -L is not used, 
+
+
+	  - ssh to other side, and call 'zrep failover', WITHOUT -L.
+
+	    That will call back to us, for takeover again, and
+	    also call us with -L
+
+	    (it will also probaly push one more sync over)
+
+
+	    So, EXIT when ssh over!
+
+
+	- if -L IS used:
+
+	  + set filesystem lock
+
+	  + readonly removed.
+	    (side effect: will break any attempted sync from other side as
+	     soon as any change, or even an 'ls', is done.)
+
+	  + If specific snap named, rollback to snap
+	  
+
+	  + switch around dest/src properties on fs
+
+	  	    
+	  + set "zrep:master" property
+
+
+	  + undo filesystem lock
+
+
+
+
+*** add feature for "pause/skip replication" on a fs, for "sync all"
+	+ make sure "status" shows the pause
+
+
+### sub-function: expire
+	- Any time an expire is triggered on one side, run on other as well
+	- pay attention to REMOTE value for zrep:savecount. it may be different!
+
+	Q? What if equal fix of zrep_xxxx and zrep_xxxx_sent? treat as whole,
+	  or only 'count' the sent ones?
+	  A: expire is meant to preserve free disk space. The snaps happen,
+	  and take up same amount of disk space, whether or not they are _sent.
+	  Therefore, must treat sent and unsent equally.
+
+	  That being said.. we MUST NOT delete the last sent snapshot!!
+
+	- Steps
+	   + get global lock
+	   + figure out which ones to save
+	   + dont miss expiring zrep_host1_host2_###_batch## also, if need be.
+	   +  do the destroys
+	   + release global lock
+
+NEED TO TEST incremental across early and late snaps, with stuff in middle.
+
+
+
+*** Workflow for  LOCK/UNLOCK ( global zrep lock)
+
+   - originally, wanted to use zfs 'hold' as locks.
+     problem: one fs can be synced to multiple dest hosts.
+      Cannot grab 'hold' on parent filesystem;  holds are only for
+       snapshots.
+   - Instead, use global lock:
+         ln -s /proc/$$ /var/run/zrep.lock
+     Hold for short time only
+     Validate lock with "ls -F /var/run/zrep.lock/."
+     Remove if invalid?
+     
+     Only allow one active (non-"status") instance to run at once?
+     Or just "discourage" multiple, and keep global lock very short time. yea.
+
+
+	General lock flow:
+	0. Global lock is only a mutex to acquire snapshot specific hold.
+
+	0.1 Create snapshot if needed
+	
+	1. Grab global lock
+	2. Check for pre-existing hold on snapshot. Quit if there is one.
+	3. create "hold" on snapshot, specific with ID
+	4. release global lock
+
+	5. (continue to do operations)
+

@@ -1,0 +1,171 @@
+#### start of zrep_failover
+
+
+
+# run this on 'master' side, to make other side master
+zrep_failover(){
+	typeset local=0 fs snap="" remotehost remotefs check
+
+	if [[ "$1" == "-L" ]] ; then
+		local=1
+		shift
+	fi
+
+	if [[ "$1" == "" ]] ; then
+		usage
+		exit 1
+	fi
+
+	zfs list $1 >/dev/null || zrep_errquit invalid filesystem $1
+	check=`zfs get -H -o value -s local zrep:master $1`
+	if [[ "$check" != "yes" ]] ; then
+		zrep_errquit $1 not master. Cannot fail over
+	fi
+
+	fs="$1"
+	
+	case $fs in
+		*@*)
+			snap=$fs
+			fs=${srcsnap%@*}
+		;;
+	esac
+
+	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
+
+	remotehost=`zfs get -H -o value zrep:dest-host $fs`
+	remotefs=`zfs get -H -o value zrep:dest-fs $fs`
+
+	print setting readonly on local $fs, then syncing
+	zfs set readonly=on $fs
+
+	if ((local ==1)) ; then
+		print failover for $1 in LOCAL mode
+		if [[ "$snap" == "" ]] ; then
+			snap=`getlastsnapsent $1`
+			zfs list $1 >/dev/null ||
+				zrep_errquit No last synced snap found for $1. Cannot fail over
+			print Rolling back to last sync $snap
+		else
+			print Rolling back to specified snap $snap
+		fi
+		zfs rollback -Rr $snap ||zrep_errquit Rollback to $snap failed
+
+	else
+
+		## Need to sync both sides before mode switch!
+		## If named snap, roll back.
+		## otherwise, "roll forward" by doing one last sync
+
+		if [[ "$snap" != "" ]] ; then
+			typeset snapname
+			snapname=${snap#*@}
+
+			print Rolling back to local $snap
+			zfs rollback -Rr $snap || zrep_errquit Rollback to $snap failed
+			print Rolling back $remotehost to $remotefs@$snapname
+			zrep_ssh $remotehost zfs rollback $remotefs@$snapname ||
+				zrep_errquit remote rollback failed
+
+		else
+			# makes new snapshot, and syncs 
+			_sync $fs $remotehost $remotefs || zrep_errsync final sync failed. failover failed.
+		fi
+
+
+	fi
+
+	print Reversing master properties for $Z_LOCAL_HOST:$fs
+
+	zfs set zrep:dest-fs=$fs $fs	
+	zfs set zrep:dest-host=$Z_LOCAL_HOST $fs
+	zfs set zrep:src-fs=$remotefs $fs	
+	zfs set zrep:src-host=$remotehost $fs
+
+	zfs inherit zrep:master $fs
+	
+	zrep_unlock_fs $fs
+
+	if (( local ==0)) ;then
+		print Setting master on $remotehost:$remotefs
+		zrep_ssh $remotehost $ZREP_PATH takeover -L $remotefs
+	fi
+	
+}
+
+# run this on 'dest' side, to promote it to master
+zrep_takeover(){
+	typeset fs snap remotehost remotefs check local=0
+
+	if [[ "$1" == "-L" ]] ; then
+		local=1
+		shift
+	fi
+	
+	if [[ "$1" == "" ]] ; then
+		usage
+		exit 1
+	fi
+
+	fs="$1"
+
+	zfs list $fs >/dev/null || zrep_errquit invalid filesystem $fs
+
+	check=`zfs get -H -o value -s local zrep:master $fs`
+	if [[ "$check" = "yes" ]] ; then
+		zrep_errquit $fs is already master. Cannot takeover
+	fi
+
+
+	remotehost=`zfs get -H -o value zrep:src-host $fs`
+	remotefs=`zfs get -H -o value zrep:src-fs $fs`
+
+
+	if (( local == 0 )) ; then
+
+		print starting failover from remote side $remotehost
+		zrep_ssh $remotehost $ZREP_PATH failover $remotefs
+		exit $?
+	fi
+
+	# If here, we must be in local mode.
+	# So... just set properties!
+	# (and roll back, if desired)
+
+	case $fs in
+		*@*)
+			snap=$fs
+			fs=${srcsnap%@*}
+		;;
+	esac
+
+
+
+	zrep_lock_fs $fs
+	zfs inherit readonly $fs
+
+	if [[ "$snap" != "" ]] ; then
+		print "WARNING: Before takeover, we will be rolling $fs"
+		print -n "   to  $snapname, made at: "
+		zfs get -H -o value creation $snap
+		print ""
+		print "All newer snapshots will be destroyed"
+		print Continuing in 10 seconds...
+		sleep 10
+
+		zfs rollback -Rr $snap || zrep_errquit Rollback to $snap failed
+	fi
+
+	print Setting master properties for $Z_LOCAL_HOST:$fs
+
+	zfs set zrep:src-fs=$fs $fs	
+	zfs set zrep:src-host=$Z_LOCAL_HOST $fs
+	zfs set zrep:dest-fs=$remotefs $fs	
+	zfs set zrep:dest-host=$remotehost $fs
+
+	zfs set zrep:master=yes $fs
+	
+	zrep_unlock_fs $fs
+	
+
+}
