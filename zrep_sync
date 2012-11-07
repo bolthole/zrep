@@ -234,7 +234,7 @@ zrep_sync(){
 		fi
 	fi
 
-	_sync $srcfs $desthost $destfs
+	_snapandsync $srcfs $desthost $destfs
 
 
 
