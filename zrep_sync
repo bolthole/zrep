@@ -129,8 +129,8 @@ _snapandsync(){
 # 	Usage: sourcefs destinationhost destinationfs (lastsent (newsnap))
 _sync(){
 	typeset srcfs=$1 desthost=$2 destfs=$3
-	typedef lastsent=$4 newsnap=$5
-	typedef snapname
+	typeset lastsent=$4 newsnap=$5
+	typeset snapname
 
 	if [[ "$lastsent" == "" ]] ; then
 		lastsent=`getlastsnapsent $srcfs`
@@ -192,12 +192,12 @@ _sync(){
 
 
 # User entrypoint, for command pair of snaponly, synconly
-zrep_synconly(){
-	xxx
-	problems..need to make this almost identical to our current full
-	zrep_sync. but just skipping first steps :(
-	should probably just rewrite zrep_sync, to ensure common routine..
-}
+#zrep_synconly(){
+#	xxx
+#	problems..need to make this almost identical to our current full
+#	zrep_sync. but just skipping first steps :(
+#	should probably just rewrite zrep_sync, to ensure common routine..
+#}
 
 
 #zrep_sync
