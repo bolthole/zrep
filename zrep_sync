@@ -209,6 +209,17 @@ zrep_synconly(){
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
+
+	zrep_lock_fs $srcfs
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Failed to acquire zrep lock for $srcfs
+	fi
+
+	_sync $srcfs $desthost $destfs || zrep_errquit sync failed for $srcfs
+
+	_expire $srcfs	#dont care so much if this fails
+
+	zrep_unlock_fs $srcfs
 }
 
 
@@ -293,7 +304,6 @@ zrep_sync(){
 	fi
 
 	_snapandsync $srcfs $desthost $destfs
-
 
 
 	# Make this message match what zrep_expire uses..

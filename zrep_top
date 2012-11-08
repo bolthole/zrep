@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=0.8.4.hand-release
+ZREP_VERSION=0.9
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars
@@ -69,6 +69,10 @@ case "$1" in
 	snaponly)
 		shift
 		zrep_snaponly "$@"
+		;;
+	synconly)
+		shift
+		zrep_synconly "$@"
 		;;
 	status|-s)
 		shift
