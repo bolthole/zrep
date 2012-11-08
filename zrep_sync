@@ -85,7 +85,7 @@ synctosnap(){
 	
 }
 
-#  _sync  fs desthost destfs
+# Usage: _snapandsync  fs desthost destfs
 # internal routine called by zrep_sync and zrep_failover,
 # to do an incremental send.
 # You must hold filesystem lock before calling this
@@ -96,9 +96,9 @@ synctosnap(){
 #
 _snapandsync(){
 	typeset srcfs=$1 desthost=$2 destfs=$3
+
 	typeset sentsnap newsnap snapname
-	typeset timeinsec=`zrep_gettimeinseconds`
-	typeset senttimeprop="zrep:sent=$timeinsec"
+
 
 
 	#srchost=`zfs get -H -o value zrep:src-host $srcfs`
@@ -107,7 +107,9 @@ _snapandsync(){
 	#fi
 
 
-	#Find incremental send starting point
+	# Find incremental send starting point
+	# Do this BEFORE creating new snap, because we should make new snap
+	# if we cant do incremental anyway
 	sentsnap=`getlastsnapsent $srcfs`
 	if [[ "$sentsnap" == "" ]] ; then
 		print zrep_sync could not find sent snap for $srcfs. 
@@ -118,20 +120,54 @@ _snapandsync(){
 	if [[ "$newsnap" == "" ]] ; then
 		zrep_errquit zrep_sync could not create new snapshot for $srcfs
 	fi
+
+	_sync $srcfs $desthost $destfs $sentsnap $newsnap
+
+}
+
+# called by _snapandsync, and also zrep_synconly
+# 	Usage: sourcefs destinationhost destinationfs (lastsent (newsnap))
+_sync(){
+	typeset srcfs=$1 desthost=$2 destfs=$3
+	typedef lastsent=$4 newsnap=$5
+	typedef snapname
+
+	if [[ "$lastsent" == "" ]] ; then
+		lastsent=`getlastsnapsent $srcfs`
+		if [[ "$lastsent" == "" ]] ; then
+			print zrep_sync could not find sent snap for $srcfs. 
+			zrep_errquit You must initialize $srcfs for zrep
+		fi
+	fi
+
+	if [[ "$newsnap" == "" ]] ; then
+		newsnap=`getlastsnap $srcfs`
+		if [[ "$newsnap" == "" ]] ; then
+			print zrep_sync could not find sent snap for $srcfs. 
+			zrep_errquit You must initialize $srcfs for zrep
+		fi
+	fi
+
+	if [[ "$newsnap" == "$lastsent" ]] ; then
+		print $newsnap already sent
+		return 0
+	fi
+
 	snapname=${newsnap#*@}
 
-
 	print sending $newsnap to $desthost:$destfs
+	typeset timeinsec=`zrep_gettimeinseconds`
+	typeset senttimeprop="zrep:sent=$timeinsec"
 
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
 	# So we dont do that usually
 
 	# other than zrep_init, this should be the ONLY place we do a send
-	zfs send -I $sentsnap $newsnap | 
+	zfs send -I $lastsent $newsnap | 
 	   zrep_ssh $desthost zfs recv $destfs
 	if [[ $? -ne 0 ]] ; then
 		zfs rename ${newsnap} ${newsnap}_unsent
-		zrep_errquit Problem doing sync for $newsnap
+		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
 	fi
 
 	#Even if we are "old mode", other side may not be.
@@ -154,6 +190,14 @@ _snapandsync(){
 	fi
 }
 
+
+# User entrypoint, for command pair of snaponly, synconly
+zrep_synconly(){
+	xxx
+	problems..need to make this almost identical to our current full
+	zrep_sync. but just skipping first steps :(
+	should probably just rewrite zrep_sync, to ensure common routine..
+}
 
 
 #zrep_sync
@@ -212,7 +256,9 @@ zrep_sync(){
 	esac
 
 	zrep_lock_fs $srcfs
+
 	if [[ $? -ne 0 ]] ; then
+		# retry for lock for a while, if (quiettime>0 )
 
 		if ((quiettime==0)); then
 			zrep_errquit Cannot lock $srcfs. Cannot continue
