@@ -191,13 +191,25 @@ _sync(){
 }
 
 
-# User entrypoint, for command pair of snaponly, synconly
-#zrep_synconly(){
-#	xxx
-#	problems..need to make this almost identical to our current full
+#User entrypoint, for synconly, which is the pair of snaponly
+zrep_synconly(){
+#	annoyingly..need to make this almost identical to our current full
 #	zrep_sync. but just skipping first steps :(
-#	should probably just rewrite zrep_sync, to ensure common routine..
-#}
+#	we can skip retries, though.
+	typeset srcfs desthost destfs
+
+	# at one point, accept multiple args. But not for now...?
+	srcfs=$1
+
+	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for synconly
+
+	desthost=`zfs get -H -o value zrep:dest-host $srcfs`
+	destfs=`zfs get -H -o value zrep:dest-fs $srcfs`
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+	then
+		zrep_errquit Problem getting zrep properties for fs $srcfs
+	fi
+}
 
 
 #zrep_sync
@@ -243,7 +255,7 @@ zrep_sync(){
 
 	desthost=`zfs get -H -o value zrep:dest-host $srcfs`
 	destfs=`zfs get -H -o value zrep:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$remhost" == "-" ]] || [[ "$remfs" == "-" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
