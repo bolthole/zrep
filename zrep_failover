@@ -69,7 +69,7 @@ zrep_failover(){
 
 		else
 			# makes new snapshot, and syncs 
-			_snapandsync $fs $remotehost $remotefs || zrep_errsync final sync failed. failover failed.
+			_snapandsync $fs $remotehost $remotefs || zrep_errquit final sync failed. failover failed.
 		fi
 
 
