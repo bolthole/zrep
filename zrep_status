@@ -42,7 +42,7 @@ zrep_status(){
 		fi
 		if ((verbose)) ; then
 			desthost=`zfs get -H -o value zrep:dest-host $fs`
-			printf "%-30s->%-30s %s\n" $fs "$desthost:$destfs" "${date#????}"
+			printf "%-25s->%-35s %s\n" $fs "$desthost:$destfs" "${date#????}"
 		else
 			printf "%-47s" $fs
 			print "last synced $date"

@@ -95,6 +95,10 @@ case "$1" in
 		shift
 		zrep_takeover "$@"
 		;;
+		
+	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
+		_refreshpull $1
+		;;
 	*)
 		usage
 		;;
