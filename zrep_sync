@@ -372,7 +372,7 @@ zrep_refresh(){
 		zrep_errquit Cannot lock $destfs. Cannot continue
 	fi
 
-	print DEBUG: refresh step 1: Going to $srchost to get a snap
+	print DEBUG: refresh step 1: Going to $srchost to snapshot $destfs
 	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
@@ -391,18 +391,20 @@ zrep_refresh(){
 	typeset timeinsec=`zrep_gettimeinseconds`
 	typeset senttimeprop="zrep:sent=$timeinsec"
 
-	zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap
+	print DEBUG: refresh step 2: Pulling $newsnap
+
+	zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
+	  zfs recv $destfs
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
 	fi
 
-	zfs set $senttimeprop $destfs@newseq
+	zfs set $senttimeprop $destfs@$newseq
 	if [[ $? -ne 0 ]] ; then
-	
+		print WARNING: expected local copy $destfs@newseq does not exist >/dev/fd/2
+	fi
 
 	zrep_unlock_fs $destfs
-
-	print " I Kan Has $newsnap ?"
 
 }
 
@@ -418,6 +420,9 @@ _refreshpull(){
 
 	snapname="$1"
 	fs=${snapname%@*}
+
+	print DEBUG: _refreshpull: snapname=$snapname, fs=$fs >/dev/fd/2
+
 	zrep_lock_fs $fs
 	if [[ $? -ne 0  ]] ; then
 		zrep_errquit Could not lock $fs
@@ -432,13 +437,14 @@ _refreshpull(){
 	#    we will see an error by the pipe blowing up.
 	#
 
-	lastsent=`getlastsnapsent $srcfs`
+	lastsent=`getlastsnapsent $fs`
 	if [[ "$lastsent" == "" ]] ; then
 		zrep_errquit Canthappen: _refreshpull cant findlastsent snap
 	fi
-	latest=`getlastsnap $srcfs`
-	if [[ "$latest" != "snapname" ]] ; then
-		zrep_errquit Sync error: $snapname is not latest snap for $srcfs
+	latest=`getlastsnap $fs`
+
+	if [[ "$latest" != "$snapname" ]] ; then
+		zrep_errquit Sync error: $snapname is not latest snap for $fs
 	fi
 
 	timeinsec=`zrep_gettimeinseconds`
@@ -455,7 +461,7 @@ _refreshpull(){
 	fi
 
 
-	zfs set $senttimeprop $newsnap
+	zfs set $senttimeprop $latest
 	zrep_unlock_fs $fs
 }
 
