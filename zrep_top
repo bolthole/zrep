@@ -97,6 +97,7 @@ case "$1" in
 		;;
 		
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
+		shift
 		_refreshpull $1
 		;;
 	*)
