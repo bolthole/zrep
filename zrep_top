@@ -23,7 +23,8 @@ usage(){
 	print 'zrep (sync|-S) [-q seconds] ZFS/fs'
 	print 'zrep (sync|-S) [-q seconds] all'
 	print 'zrep (sync|-S) ZFS/fs@snapshot    -- temporary retroactive sync'
-	print 'zrep (status|-s) [ZFS/fs]'
+	print 'zrep (status|-s) [-v] [ZFS/fs]'
+	print 'zrep refresh ZFS/fs               -- pull version of sync'
 	print 'zrep (list|-l) [-v]'
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep (changeconfig|-C) ZFS/fs remotehost remoteZFSpool/fs'
@@ -73,6 +74,10 @@ case "$1" in
 	synconly)
 		shift
 		zrep_synconly "$@"
+		;;
+	refresh)	# yes keep this in this order
+		shift
+		zrep_refresh "$@"
 		;;
 	status|-s)
 		shift
