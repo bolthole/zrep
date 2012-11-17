@@ -15,7 +15,12 @@
 # Note that the date given is time of SNAPSHOT, not time sync completed.
 #
 zrep_status(){
-	typeset check fs date lastsnap
+	typeset check fs desthost destfs date lastsnap verbose=0
+	typeset shortdate
+	
+	if [[ "$1" == "-v" ]] ; then
+		verbose=1 ; shift
+	fi
 
 	if [[ "$1" == "" ]] ; then
 		set -- `zrep_list_master`
@@ -24,8 +29,8 @@ zrep_status(){
 	while [[ "$1" != "" ]] ; do
 		fs="$1"
 
-		check=`zfs get -H -o value zrep:dest-fs $fs`
-		if [[ "$check" == "-" ]] ; then
+		destfs=`zfs get -H -o value zrep:dest-fs $fs`
+		if [[ "$destfs" == "-" ]] || [[ "$destfs" == "" ]]; then
 			zrep_errquit "$fs is not a zrep registered filesystem"
 		fi
 
@@ -35,8 +40,13 @@ zrep_status(){
 			else
 		date=`zfs get -H -o value creation $lastsnap`
 		fi
-		printf "%-47s" $fs
-		print "last synced $date"
+		if ((verbose)) ; then
+			desthost=`zfs get -H -o value zrep:dest-host $fs`
+			printf "%-30s->%-30s %s\n" $fs "$desthost:$destfs" "${date#????}"
+		else
+			printf "%-47s" $fs
+			print "last synced $date"
+		fi
 		shift
 	done
 }
