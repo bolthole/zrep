@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=0.9
+ZREP_VERSION=1.0.beta
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars
@@ -23,7 +23,7 @@ usage(){
 	print 'zrep (sync|-S) [-q seconds] ZFS/fs'
 	print 'zrep (sync|-S) [-q seconds] all'
 	print 'zrep (sync|-S) ZFS/fs@snapshot    -- temporary retroactive sync'
-	print 'zrep (status|-s) [-v] [ZFS/fs]'
+	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
 	print 'zrep refresh ZFS/fs               -- pull version of sync'
 	print 'zrep (list|-l) [-v]'
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'

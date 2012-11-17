@@ -15,8 +15,8 @@
 # Note that the date given is time of SNAPSHOT, not time sync completed.
 #
 zrep_status(){
-	typeset check fs desthost destfs date lastsnap verbose=0
-	typeset shortdate
+	typeset check fs srcfs jdesthost destfs date lastsnap verbose=0
+	typeset printall=0
 	
 	if [[ "$1" == "-v" ]] ; then
 		verbose=1 ; shift
@@ -24,6 +24,9 @@ zrep_status(){
 
 	if [[ "$1" == "" ]] ; then
 		set -- `zrep_list_master`
+	elif [[ "$1" == "-a" ]] ; then
+		set -- `zrep_list`
+		printall=1
 	fi
 
 	while [[ "$1" != "" ]] ; do
@@ -37,14 +40,27 @@ zrep_status(){
 		lastsnap=`getlastsnapsent $fs`
 		if [[ "$lastsnap" == "" ]] ; then
 			date="[NEVER]"
-			else
-		date=`zfs get -H -o value creation $lastsnap`
-		fi
-		if ((verbose)) ; then
-			desthost=`zfs get -H -o value zrep:dest-host $fs`
-			printf "%-25s->%-35s %s\n" $fs "$desthost:$destfs" "${date#????}"
 		else
-			printf "%-47s" $fs
+			date=`zfs get -H -o value creation $lastsnap`
+		fi
+		if ((printall)) && ((verbose)) ; then
+			# If we are printing out  ALL filesystems,
+			# then we have to make sure left side is always
+			#  "src filesystem", not "named filesystem"
+			# then we have to check what the src fs is
+			srcfs=`zfs get -H -o value zrep:src-fs $fs`
+		else
+			# Yes, okay, if -a is used, then
+			# technically, this isnt always "src".
+			# but it prints out right, so close enough :)
+			srcfs="$fs"
+		fi
+
+		if ((verbose)) ; then
+			desthost=`zfs get -H -o value zrep:dest-host $srcfs`
+			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "${date#????}"
+		else
+			printf "%-47s" $srcfs
 			print "last synced $date"
 		fi
 		shift
@@ -81,13 +97,16 @@ list_verbose(){
 }
 
 
-# Usage
+# Note: called by both user, AND by zrep_status
+#
+# Usage:
 # zrep_list [-v]
 # zrep_list [-L]
 # zrep_list [-v] fs1 fs2
 # list all zrep-initialized filesystems (NOT snapshots..)
 # If no specific fs listed, will show master, AND received filesystems,
-#    unless -L given
+#    unless -L given (in which case, only local masters will be shown)
+#
 # Normal output is one line per fs.
 #
 #  -v gives all properties of each filesystem
