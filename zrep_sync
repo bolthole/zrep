@@ -163,6 +163,7 @@ _sync(){
 	# So we dont do that usually
 
 	# other than zrep_init, this should be the ONLY place we do a send
+	#   Sigh. but now we also do in _refreshpull
 	zfs send -I $lastsent $newsnap | 
 	   zrep_ssh $desthost zfs recv $destfs
 	if [[ $? -ne 0 ]] ; then
@@ -344,9 +345,11 @@ zrep_sync(){
 #   The ugly comes when updating zrep:sent. Dont want to update wrong snap!
 #   So long as we do some kind of check to see that we're not going
 #   backwards when we get lock a second time ... we should be relatively okay.
+#   However.. for simplicity... going to just cross fingers and wrap
+#   all three in single remote lock call, through _refreshpull
 #
 zrep_refresh(){
-	typeset srcfs destfs desthost sentsnap newsnap
+	typeset srcfs destfs desthost newsnap newseq master
 
 	# for now, just handle ONE arg, not multiple fs list
 
@@ -355,6 +358,12 @@ zrep_refresh(){
 		print Error: no filesystems specified for refresh >/dev/fd/2
 		return 1
 	fi
+
+	master=`zfs get -H -o value -s local zrep:master $destfs`
+	if [[ "$master" == "yes" ]] ; then
+		zrep_errquit Sorry, you cant run refresh on a master mode fs $destfs
+	fi
+
 	srchost=`zfs get -H -o value zrep:src-host $destfs`
 	srcfs=`zfs get -H -o value zrep:src-fs $destfs`
 
@@ -363,18 +372,92 @@ zrep_refresh(){
 		zrep_errquit Cannot lock $destfs. Cannot continue
 	fi
 
-	print DEBUG: Going to $srchost to get a snap
-	zrep_ssh $srchost $ZREP_PATH snaponly $srcfs ||
+	print DEBUG: refresh step 1: Going to $srchost to get a snap
+	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
+	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
+	fi
+	# yes, MORE paranoia..
+	case $newsnap in
+		*@zrep_*)
+			newseq=${newsnap#*@}
+			;;
+		*)
+			zrep_errquit Unrecognized output from src snap. Cannot continue
+			;;					
+	esac
+	
+	
+	typeset timeinsec=`zrep_gettimeinseconds`
+	typeset senttimeprop="zrep:sent=$timeinsec"
 
+	zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
+	fi
+
+	zfs set $senttimeprop $destfs@newseq
+	if [[ $? -ne 0 ]] ; then
 	
 
 	zrep_unlock_fs $destfs
 
+	print " I Kan Has $newsnap ?"
 
-	zrep_errquit "zrep_refresh not finished yet!!"
 }
 
+# Hidden command-line option for "zrep refresh"
+# This is the "remote call" to support zrep refresh
+#    ( aka  zrep_refresh  )
+# In principle, its kinda like "zrep expire" being callable by
+# both the user, and the program itself. 
+# However, this routine is definitely not supposed to be user visible
+#   .. eh... maybe someday. but initial design is "private"
+_refreshpull(){
+	typeset fs snapname lastsent latest timeinsec senttimeprop
+
+	snapname="$1"
+	fs=${snapname%@*}
+	zrep_lock_fs $fs
+	if [[ $? -ne 0  ]] ; then
+		zrep_errquit Could not lock $fs
+	fi
+
+	#We should now;
+	# 1. compare to latest snap. quit if not latest
+	# 2. get timestamp
+	# 3. trigger a zfs send
+	# 4.  set timestamp if no errors.
+	#    I think it is reasonable to presume that if the receive failed,
+	#    we will see an error by the pipe blowing up.
+	#
+
+	lastsent=`getlastsnapsent $srcfs`
+	if [[ "$lastsent" == "" ]] ; then
+		zrep_errquit Canthappen: _refreshpull cant findlastsent snap
+	fi
+	latest=`getlastsnap $srcfs`
+	if [[ "$latest" != "snapname" ]] ; then
+		zrep_errquit Sync error: $snapname is not latest snap for $srcfs
+	fi
+
+	timeinsec=`zrep_gettimeinseconds`
+	senttimeprop="zrep:sent=$timeinsec"
+
+	if (( Z_HAS_SNAPPROPS ==0)) ; then
+		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
+	fi
+
+	zfs send -I $lastsent $latest
+
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
+	fi
+
+
+	zfs set $senttimeprop $newsnap
+	zrep_unlock_fs $fs
+}
 
 # _expire: 
 #   get rid of "old" snapshots for a specifically named filesystem
