@@ -320,6 +320,62 @@ zrep_sync(){
 
 
 
+# zrep_refresh is a "pull" version of "zrep_sync"
+# The concept is a bit of a hack.
+# It primarily exists so people can run a secure backup server, that
+# has ssh access to all hosts, but not vice versa
+#
+# Implementation is a bit sketchy. 
+# For initial, non-optimal run, perhaps take advantage of
+#    ssh host zrep synconly
+# to avoid too much duplication of things?
+# but will still need to set all the perms n things. Nastyyy..
+# The MAIN nastiness, is that all our locks are on the "master" side.
+# Which depends on the PID still being there!!
+# But if we start now running things on the "slave" side.. 
+# There is potential for problems
+# Examine critical points and reasons for lock:
+#   1. while doing analysis of which snap to send
+#   2. to avoid paralel "zfs send"s running.
+#   3. for update of timestamp
+#
+#   We can still wrap #1 and #2 in a single lock call. 
+#    (and still on the src side!)
+#   The ugly comes when updating zrep:sent. Dont want to update wrong snap!
+#   So long as we do some kind of check to see that we're not going
+#   backwards when we get lock a second time ... we should be relatively okay.
+#
+zrep_refresh(){
+	typeset srcfs destfs desthost sentsnap newsnap
+
+	# for now, just handle ONE arg, not multiple fs list
+
+	destfs="$1"
+	if [[ "$1" == "" ]] ; then
+		print Error: no filesystems specified for refresh >/dev/fd/2
+		return 1
+	fi
+	srchost=`zfs get -H -o value zrep:src-host $destfs`
+	srcfs=`zfs get -H -o value zrep:src-fs $destfs`
+
+	zrep_lock_fs $destfs
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Cannot lock $destfs. Cannot continue
+	fi
+
+	print DEBUG: Going to $srchost to get a snap
+	zrep_ssh $srchost $ZREP_PATH snaponly $srcfs ||
+		zrep_errquit snap of src $srcfs on $srchost failed
+
+	
+
+	zrep_unlock_fs $destfs
+
+
+	zrep_errquit "zrep_refresh not finished yet!!"
+}
+
+
 # _expire: 
 #   get rid of "old" snapshots for a specifically named filesystem
 #
