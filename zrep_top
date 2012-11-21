@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.0.beta
+ZREP_VERSION=1.0
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars

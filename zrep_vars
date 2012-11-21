@@ -18,6 +18,10 @@ ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /path/to/zrep, if needed, for remote
 Z_LOCAL_HOST=`uname -n`
 Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
 
+# Solaris hack, to use native perl, which isnt always in $PATH,but should
+# always be there. It's also simple, straightforward, and non-extended.
+# But on other OSs will fall back to use default perl.
+PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 # Capability for this  does not show in usage.
 # So, just tie this to MU6 related check,like HAS_SNAPPROPS
@@ -242,6 +246,7 @@ zrep_ssh(){
 }
 
 zrep_gettimeinseconds(){
-	# unfortunately, solaris date doesnt do '%s'
-	/usr/perl5/bin/perl -e 'print int(time);'
+	# unfortunately, solaris date doesnt do '%s', so need to use perl
+	typeset PATH=$PERL_BIN:$PATH
+	perl -e 'print int(time);'
 }
