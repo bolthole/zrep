@@ -41,6 +41,9 @@ usage(){
 	print 'The above two commands split the simple sync subcommand, into two'
 	print 'separate steps, so that a database, etc. may resume while the sync'
 	print 'completes in the background'
+	print ''
+	print ' More detailed examples can be found at:'
+	print http://www.bolthole.com/solaris/zrep/zrep.documentation.html
 }
 
 case "$1" in
