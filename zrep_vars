@@ -48,6 +48,10 @@ zfs >$zrep_checkfile 2>&1
 if grep 'help' $zrep_checkfile >/dev/null ;then
 	Z_HAS_X=1	  # can use recv -x
 	Z_HAS_SNAPPROPS=1 # can set properties on snapshots
+			  # This also lets me set accurate "last synced" timestamps
+			  # otherwise cant use zrep:sent sanely
+			  # would lose it on rollbacks
+
 	DEPTHCAP="-d 1" # limits "list -r"
 else
 	if grep 'receive.*-x' $zrep_checkfile >/dev/null ;then
