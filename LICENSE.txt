@@ -1,0 +1,14 @@
+License for zrep   ( http://www.bolthole.com/solaris/zrep )
+Author: Philip Brown  phil@bolthole.com  2012
+
+Bugs, comments, and requests are encouraged
+
+Permission is hereby given for you to freely(but without warrantee)
+use the zrep program.
+
+You may also make copies internal to your organization, and modify as
+required, so long as this license is copied with it.
+
+You may NOT publically redistribute it, either in its original form, or
+modified, without explicit consent by the author.
+
