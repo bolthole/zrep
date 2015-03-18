@@ -164,8 +164,14 @@ _sync(){
 
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
-	zfs send -I $lastsent $newsnap | 
-	   zrep_ssh $desthost zfs recv $destfs
+	if [[ "$MBUFFER" != "" ]] ; then
+		zfs send -I $lastsent $newsnap | $MBUFFER
+		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
+	else
+		zfs send -I $lastsent $newsnap | 
+		   zrep_ssh $desthost zfs recv $destfs
+	fi
+
 	if [[ $? -ne 0 ]] ; then
 		zfs rename ${newsnap} ${newsnap}_unsent
 		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
@@ -393,8 +399,13 @@ zrep_refresh(){
 
 	print DEBUG: refresh step 2: Pulling $newsnap
 
-	zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
-	  zfs recv $destfs
+	if [[ "$MBUFFER != "" ]] ; then
+		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
+		  $MBUFFER | zfs recv $destfs
+	else
+		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
+		  zfs recv $destfs
+	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
 	fi

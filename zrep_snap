@@ -305,8 +305,14 @@ zrep_init(){
 			MOUNTFILTER="-x mountpoint"
 		fi
 
+		if [[ "$MBUFFER" != "" ]] ; then
+		zfs send -p $snap | $MBUFFER |
+			zrep_ssh $desthost "$MBUFFER |
+				zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
+		else
 		zfs send -p $snap |
-		  zrep_ssh $desthost zfs recv $MOUNTFILTER $READONLYPROP -F $destfs
+			zrep_ssh $desthost zfs recv $MOUNTFILTER $READONLYPROP -F $destfs
+		fi
 	else
 		## arg.. Patch your systems!!
 		# Doesn't support "recv -x mountpoint", so cant use -p in send
@@ -328,13 +334,14 @@ zrep_init(){
 		zrep_ssh $desthost zfs set zrep:src-fs=$srcfs $destfs
 		zrep_ssh $desthost zfs set zrep:src-host=$Z_LOCAL_HOST $destfs
 		zrep_ssh $desthost zfs set zrep:dest-fs=$destfs $destfs
-		zrep_ssh $desthost zfs set zrep:dest-host=$destfs $destfs
+		zrep_ssh $desthost zfs set zrep:dest-host=$desthost $destfs
 		zrep_ssh $desthost zfs set zrep:savecount=$Z_SAVE_COUNT	$destfs
 
 	fi
 
+	# Make sure to set format to match what zrep_sync() looks for!
 	if (( Z_HAS_SNAPPROPS )) ; then
-		typeset sentprop="zrep:sent=`date +%Y%m%d%H%M%S`"
+		typeset sentprop="zrep:sent=`zrep_gettimeinseconds`"
 		zfs set $sentprop ${snap}
 	else
 		# Arg stupidold stuff cant set props on a snapshot

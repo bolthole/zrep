@@ -9,6 +9,9 @@ SSH=${SSH:-ssh}
 ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /path/to/zrep, if needed, for remote
 #ZREP_CREATE_FLAGS="-o whatever"   #Set for extra options on remote zfs create
 
+# If you have mbuffer installed, and wish to use it to speed up transfers,
+# define it in your environment. Sample definition:
+#MBUFFER="mbuffer -q -m 1G -s 128k"
 
 #########################################################################
 # Everyting else below here, should not be touched. First we have autodetect
