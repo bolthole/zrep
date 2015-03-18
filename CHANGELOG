@@ -1,0 +1,80 @@
+(Note to self: update freecode.com on new releases)
+
+zrep 0.1: March 12,2012
+	Initial release
+
+zrep 0.2: March 15,2012
+	Added better "are we REALLY master" check, for zone safety
+	Added exclusion of mountpoint property, for initial sync copy
+
+version 0.3: June 22, 2012
+	Hacked in some support for Sol10u8 (and possibly better non-solaris
+	system support, if you force "oldflag" to be true)
+
+	Fixed bug in list_autosnaps
+	Fixed issue with "zrep clear" deleting ALL snapshots instead of
+	just zrep ones
+
+
+version 0.3.1: june 25, 2012
+	AAAAAA RE-FIX list_autosnaps bug!! prior fix made worse!
+	Now tested better
+
+version 0.3.2: june 26, 2012
+	Old-system-support improved
+
+version 0.4: june 28, 2012
+	Only minor change for robustness, related to savecount,
+	along with similar old-zfs-compat tweak
+	But time to bump the minor version I think.
+
+version 0.7: june 29, 2012
+	Added some restructuring of internals. some added coments,
+	a bit of standardization of function formatting, and addition of
+	lastsynctime() function, so that should be able to have parallel
+	operations safely soon!
+	Plus added version number to usage message
+
+version 0.7.1: July 5th, 2012
+	Added check for volumes, to skip -x mountpoint
+
+
+version 0.8.0:  (july 6th)
+	Transitioned from very narrow backward ZFS compatibility, to a more
+	autodetect generated methodology, that should be more portable.
+	Plus improved comments here and there.
+	A LOT of code change here.
+	(But in theory, almost zero visible change to anyone who is current
+	  with their ZFS)
+
+	Changed 'status' output from "synced as of" to "last synced"
+
+version 0.8.1: july 9th, 2012
+	Arrg. Fixed it to work with solaris 11.
+	Turns out they changed the output of zfs between 10 and 11.
+
+version 0.8.2.: july 10th, 2012
+	Found out I was not initializing dest volumes correctly,
+	so fixed that.
+	Also optimized regular dest fs initialization.
+
+version 0.8.3: aug 16, 2012
+	fix call to remotely set 'lastsent' property, for older
+	zfs code. Was attempting to set on "$desthost" instead of "$destfs"
+
+version 0.8.4:
+	added support ZREP_CREATE_FLAGS env var, for "zrep init" use.
+
+version 0.9: nov 8, 2012
+	Added "snaponly", and "synconly" subcommands
+
+version 1.0:nov 20, 2012
+	made perl invokation more flexible
+	added zrep refresh
+
+version 1.0.1:may 13, 2013
+	minor fix: format of timestamp wrong for zrep init
+
+version 1.1:(pending)
+	Add hooks for mbuffer use.
+	Fixed but for ! Z_HAS_X case dest-host=$destfs

@@ -1,0 +1,28 @@
+Notes on how "normal" thing does locks n stuff.
+
+
+zrep sync:
+
+	* lock src fs
+	* (retry if appropriate)
+	* call _snapandsync
+	* call _expire
+	* unlock src fs
+	end
+
+
+_snapandsync
+	*(create snapshot...)
+
+	_sync
+
+_sync
+	* find last sent
+	* find newest snap
+	* put together the zfs incremental command
+	* Attempt to set zrep:sent=xxxx   on snapshot, on REMOTE side,
+	   and then local
+	   - If this fails, set zrep:lastsent and lastsenttime, on *filesystem*
+	      of remote side, and then local
+
+	

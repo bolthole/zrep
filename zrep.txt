@@ -1,0 +1,169 @@
+Note to myself: check back on
+http://www.mail-archive.com/zfs-discuss@opensolaris.org/
+ or
+http://news.gmane.org/gmane.os.solaris.opensolaris.zfs
+
+
+WIP: This file is a design doc for "zrep", a zfs based replication and 
+failover program.
+For a higher level 'user land' overview, see zrep.overview.txt
+
+zrep goes one step beyond other free replication utils I've seen, in that
+it is explicitly targetting the concept of production "failover" of a 
+filesystem, rather than replication alone.
+This is meant to be "enterprise product" quality software, rather than merely
+a raw sysadmin's tool.
+To put it another way, its API is targetted towards belonging in /bin, rather 
+than  under /usr/libexec/zfs or somewhere strange.
+
+# Design goals:
+# 1. Easy to configure
+# 2. Easy to use
+# 3. As robust as possible
+#   3.1 will not be harmful to run every minute, even when WAN is down.
+#   (Will need safety limits on # of snapshots and filesystem space free?)
+# 4. Well documented
+
+# Limitations(mostly for ease-of-use reasons):
+#  Uses "short hostname", not FQDN, in snapshot names. automatically truncates.
+#  Stores configuration in filesystem properties of snapshots.
+#  Only one replication destination per filesystem allowed.
+#  This keeps required configs and parsing much simpler.
+
+# cross-process locking is done via file in /var/run. 
+# cant easily use zfs filesystem properties, since there is no concept
+#  of "owner" of property.
+# "zfs hold FS@snap seems pretty good... but again, there is no
+#   apparent concept of WHO holds it, plus holds cannot be done
+#   on top level fs. Only snapshots.
+
+
+
+Usage:
+
+zrep -i/init ZFSfs remotehost destfs   == create initial snapshot.
+                 should do lots of sanitychecks. both local and remote.
+		 Does first sync as well
+
+zrep -S/sync ZFSfs  # copy/sync of fs after initial snapshot created
+zrep -S/sync ZFSfs@snap     ### (should this be allowed? only as retry)
+zrep -S/sync ZFSfs@snap_sent  ## convenience: force other side to roll to that
+			      ## snap.  "rollback" has drawbacks! kills
+			      ## newer snaps!
+			      ## unfortunately, can not "incremental zsend"
+			      ## from newer to earlier either. SO have to roll
+
+zrep -S/sync all   #special case, copies all zfs fs's that have been
+                   # initialized.
+
+zrep -C/changeconfig ZFSfs remotehost destfs
+	# Only call this on master side for destfs
+	# sets zrep properties to know dest/src for filesystem
+
+zrep -l/list (ZFSfs ...)#list existing configured filesystems, and their config
+                 # Should also somehow list INCOMING zrep synced stuff?
+		 # or use separate option for that? Possibly -L
+
+zrep -e/expire [-L] (ZFSfs|all|) 
+
+
+zrep -p/pause ZFSfs   ?
+zrep -u/unpause ZFSfs ?
+
+
+zrep clear ZFSfs   #clear all configured replication for that fs.
+
+zrep failover ZFSfs(@snapname)  # Changes sync direction to non-master
+                                # Run from current master
+
+zrep takeover ZFSfs(@snapname)  # Changes sync direction to non-master
+                                # Run from current target system.
+				# Use -L if normal master is down.
+
+
+
+
+###########################################
+#  zrep fs properties for set/get
+# (on PARENT filesystem)
+#	Note that snapshots do not preserve old property information!!
+#	They are only a "snapshot" of data in files.
+#
+# Do note that any zrep:xxx tag, can only have **10 chars** of xxx
+#  otherwise, it messes up formatting of zfs get
+#
+# zrep:dest-fs    which filesystem gets this zsend to on remote host
+# zrep:src-fs     where data for this fs comes from
+#
+# zrep:dest-host  matches properties above
+# zrep:src-host
+#
+# zrep:inprogress Possible future use
+
+# zrep:lock-pid   Temporarily set while zrep fs operation in progress
+# zrep:lock-time  See above.
+#
+# zrep:savecount how many old snapshots to preserve. 
+# 
+# zrep:created is redundant: use "creation" property of snapshot
+#
+# zrep:dest-user (and src-user for symmetry) could be useful,
+#   but currently not used.
+#
+# zrep:sent  Set on both sides, with timestamp of successful sync
+
+
+#   ODDITY about properties:
+#	- zfs send -p and -b seem to act identically sometimes.
+#	- On INITIAL send, either flag will cause other side to
+#	  have its properties overridden by local-set ones,
+#	  or NULLED OUT if no local values set!
+#	  Without any flags, remote props stay untouched.
+#	  This means -b is buggy. does nt work as documented in man.
+#
+#    2. -x does not actualy seem to work either. 
+#	At initial zfs send -p, all properties will be forced upon other
+#	side, even if one has been allegedly protected with   recv -x
+#	This is also true after incremental send, even if
+#	not using -F with recv
+#    The above oddities, mean that you cannot set different preservecounts
+#    for each side. They have to be the same :(
+#
+### zfs 'hold' naming convention
+# (only create after getting global lock symlink /var/run/zrep.lock)
+# zrep_lock_PIDHERE
+#
+###########################################
+# snapshot name format:
+#
+# fs@zrep_#seq#
+# fs@zrep_#seq#_unsent
+#
+#    #seq#  is 6-digit hex, to allow every minute over 10+ years
+# It is in that position, so that output should sort nicely
+#
+# If you wish to view which snapshots have been successfully sent,
+# you can use
+#   zfs get -r zrep:sent  pool/fs
+#
+#  Otherwise, "zrep status fs" will show time latest synced snap was created.
+#
+# After initialization, when normal operations has started, there should
+#  always be at least TWO snapshots:
+#  the latest "full", and the most recently sent incremental.
+#
+# Original idea for snapshot name format, not used now: 
+#  fs@zrep_host1_host2_#seq#
+#  fs@zrep_host1_host2_#seq#_sent
+#  fs@zrep_host1_host2_#seq#_batchPID
+#  Positives and negatives about having src & dest in snap name:
+#  + makes it really easy for sysadmin to see where this is sent to
+#  + allows sysadmin to "zfs list|grep", potentially
+#  + potentially allows future use of multi-destination snapshots
+#
+#  - requires renaming all snaps, when direction is reversed
+#  - potentially really long snap names
+
+FILES
+/var/run/zrep.lock
+/var/run/zrep.lock.batch$$

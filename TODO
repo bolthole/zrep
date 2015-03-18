@@ -1,0 +1,17 @@
+I still need to add in:
+
+  -P flag to "sync all", to autouse parallelism
+  	(make it timestamp limited)
+	Need to also make debug output parallel-friendly
+
+  Add in optional /etc/zreprc to save time doing autodetect?
+   
+
+BLOCKED on these changes:
+  Figure out way to convert zfs "creation" value to simple number, for
+    timestamp comparisons?
+
+  status subcommand should estimate how much data needs syncing
+  BLOCK: can't find way to calculate this?
+   (Another problem is in dealing with loong fs names?
+

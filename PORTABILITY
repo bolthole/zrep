@@ -1,0 +1,57 @@
+Here are notes on cross-platform issues. Notes to myself on what features
+may or may not be available, and tradeoffs for each.
+
+zfs list -d X
+	Present in Solaris 11, 10MU10, nexenta 3.1.3
+	Gives ability to "nest" zrep managed filesystems
+
+zfs send -p
+	Present pretty much everywhere.
+	Allows auto-copy of properties on src filesystem.
+	HOWEVER: may cause problems if -x is not functional for recv
+	See -x lower down
+
+zfs receive -x
+	Present In MU10, but not MU6.
+	Not present in nexenta.
+	Allows filtering of "mountpoint" property
+	WARNING:  would be nice to use it morethan I do, and
+	use -p all the time... but it is buggy :( does not
+	always exclude the property I want it to.
+
+Setting properties on SNAPSHOT, not just filesystem
+	Present in MU10, and nexenta. Not present on MU6
+	Currently used to set a per-snapshot timestamp of
+	when it was successfully sent.
+	There is some reason why I prefer NOT to just do
+	the fallback, of setting that information in the
+	parent fs, but I'm not remembering it clearly. It was
+	after a long debug session sometime.
+	:-(
+
+	May have been when I was using send -p, so didnt want
+	older value synced.
+	And/or, may be to allow sometime in future, multiple snap
+	trees, for multi-machine syncs
+	(but that would require significant rewrite, of our zrep:xx props)
+
+	Still seems kind of conceptually nice,when you have multiple
+	snapshots,to have a record of when each was sent.
+	Perhaps it is for purposes of ROLLBACK.
+	If you ever roll back on the master, a "last synced" value set
+	on the parent filesystem is then misleading/inaccurate, until next
+	sync
+
+	
+zfs get -s (local,)received
+	Present in MU10, and nexenta. NOT in MU6!!
+	Allows us to filter for properties that got transfered
+	via just "send -p", rather thanhaving to manually
+	   "ssh $desthost zfs set xxx"
+	to make it local
+
+	Used to us this more, but I think transitioned to
+	using direct set for everything,to make compat easier.
+	But this adds much latency for short stuff :(
+
+	
