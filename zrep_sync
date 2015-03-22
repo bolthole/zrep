@@ -399,7 +399,7 @@ zrep_refresh(){
 
 	print DEBUG: refresh step 2: Pulling $newsnap
 
-	if [[ "$MBUFFER != "" ]] ; then
+	if [[ "$MBUFFER" != "" ]] ; then
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
 		  $MBUFFER | zfs recv $destfs
 	else
