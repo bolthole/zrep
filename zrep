@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.1
+ZREP_VERSION=1.2
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -49,41 +49,47 @@ esac
 
 
 zfs >$zrep_checkfile 2>&1 
-# Sigh. solaris 11 changes output yet again, there is no global usage msg,
-# which makes it much less efficient to parse.
-# So first 'if' clause is a bit of a hack.
-# Just assume has everything, if usage message is newer style
+# Previously did a bit of a hack job for feature detection.
+# Now attempting to make it smarter,
+# at the expense of some startup speed :(
+Z_HAS_X=0	  # can use recv -x
+Z_HAS_SNAPPROPS=0
 
 if grep 'help' $zrep_checkfile >/dev/null ;then
+   # Presume Solaris 11, which has all features, but
+   # does not allow line-by-line feature detection
 	Z_HAS_X=1	  # can use recv -x
 	Z_HAS_SNAPPROPS=1 # can set properties on snapshots
-			  # This also lets me set accurate "last synced" timestamps
-			  # otherwise cant use zrep:sent sanely
-			  # would lose it on rollbacks
+			  # This also lets me set "last synced" timestamps
+			  # otherwise cant use zrep:sent sanely.
+			  # Would lose information on rollbacks
 
 	DEPTHCAP="-d 1" # limits "list -r"
+
 else
 	if grep 'receive.*-x' $zrep_checkfile >/dev/null ;then
 		Z_HAS_X=1	  # can use recv -x
 	else
 		Z_HAS_X=0
 	fi
-	if grep 'set.*snapshot' $zrep_checkfile >/dev/null ;then
+	if grep 'set .*snapshot' $zrep_checkfile >/dev/null ;then
 		Z_HAS_SNAPPROPS=1 # can set properties on snapshots
-	else
-		Z_HAS_SNAPPROPS=0
-		PROPTYPES="local"
 	fi
 	if grep 'list.*-d' $zrep_checkfile >/dev/null ;then
 		DEPTHCAP="-d 1" # limits "list -r"
 	else
 		DEPTHCAP=""
-		print WARNING: old ZFS version detected
+		print WARNING: old ZFS version detected with no depth protection
 		print WARNING: You may not nest zrep managed filesystems
 	fi
 fi
 
+if ((!Z_HAS_SNAPPROPS)) ; then
+	PROPTYPES="local"
+fi
 if ((Z_HAS_X)) ; then
+   	# Okay this assumption may not be valid everywhere, but
+	# until I find somewhere it isnt...
 	Z_HAS_O=1  # can recv use -o option
 else
 	Z_HAS_O=0
@@ -1227,7 +1233,7 @@ zrep_refresh(){
 
 	print DEBUG: refresh step 2: Pulling $newsnap
 
-	if [[ "$MBUFFER != "" ]] ; then
+	if [[ "$MBUFFER" != "" ]] ; then
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
 		  $MBUFFER | zfs recv $destfs
 	else
