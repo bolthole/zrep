@@ -999,7 +999,7 @@ _sync(){
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
 	if [[ "$MBUFFER" != "" ]] ; then
-		zfs send -I $lastsent $newsnap | $MBUFFER
+		zfs send -I $lastsent $newsnap | $MBUFFER |
 		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
 	else
 		zfs send -I $lastsent $newsnap | 
