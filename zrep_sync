@@ -1,7 +1,8 @@
 ##### zrep_sync
 
-# contains meat of the "sync" level operations.
-# basic snap routines, and init rountines, are in zrep_snap
+# contains meat of the "sync" level operations, which deal with
+# data transfer.
+# basic snap routines, and init routines, are in zrep_snap
 
 
 ####################
@@ -385,7 +386,7 @@ zrep_refresh(){
 	fi
 	# yes, MORE paranoia..
 	case $newsnap in
-		*@zrep_*)
+		*@${ZREPTAG}_*)
 			newseq=${newsnap#*@}
 			;;
 		*)
