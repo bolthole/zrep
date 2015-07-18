@@ -178,6 +178,7 @@ makesnap(){
 ## Will remove zrep snapshots and zfs zrep: properties
 zrep_clear(){
 	print "WARNING: Removing all zrep configs and snapshots from $1"
+	print " (for TAG=${ZREPTAG})"
 	print Continuing in 10 seconds
 	sleep 10
 
