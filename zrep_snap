@@ -26,7 +26,7 @@
 getlastsequence(){
 	typeset lastval
 	#remember, filesystems can have '_' in them
-	getlastsnap $1|sed 's/.*@zrep_\(......\).*/\1/'
+	getlastsnap $1|sed 's/.*@'${ZREPTAG}'_\(......\).*/\1/'
 }
 
 # prints out last snapshot zrep created, going purely by sequence.
@@ -34,7 +34,7 @@ getlastsequence(){
 # This is basically "getallsnaps |tail -1"
 getlastsnap(){
 	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
-	   sed -n '/@zrep_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/'p |
+	   sed -n "/@${ZREPTAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/"p |
 	   sort | tail -1
 }
 
@@ -93,7 +93,7 @@ getlastsynctime(){
 #This is for synctosnap, and also zrep_expire
 getallsnaps(){
 	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
-	   sed -n '/@zrep_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/'p |
+	   sed -n "/@${ZREPTAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/"p |
 	   sort
 }
 
@@ -104,7 +104,7 @@ list_autosnaps(){
 		zrep_errquit "zrep internalerror: no arg for list_autosnaps"
 	fi
  	zfs list $DEPTHCAP -r -H -o name -t snapshot $1 |
-		grep '@zrep_[0-9a-f][0-9a-f]'
+		grep "@${ZREPTAG}_[0-9a-f][0-9a-f]"
 	# Make sure this format matches other routines in here
 	# Okay to just check first few digits though
 }
@@ -161,7 +161,7 @@ makesnap(){
 
 
 	#print DEBUG old=$oldseq new=$newseqX >/dev/fd/2
-	newsnap="$1@zrep_$newseqX"
+	newsnap="$1@${ZREPTAG}_$newseqX"
 	
 	zfs snapshot $newsnap
 	if [[ $? -eq 0 ]] ; then
@@ -282,7 +282,7 @@ zrep_init(){
 		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $destfs || zrep_errquit "Cannot create $desthost:$destfs"
 	fi
 
-	snap="${srcfs}@zrep_000000"
+	snap="${srcfs}@${ZREPTAG}_000000"
 	print Creating snapshot $snap
 	zfs snapshot $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
 
