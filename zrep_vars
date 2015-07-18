@@ -9,13 +9,16 @@
 SSH=${SSH:-ssh}
 ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
 
-# set this if you want to use a different zfs property to store zrep info.
+# Set this if you want to use a different zfs property to store zrep info.
 # default has things like zrep:dest-host and zrep:dest-fs
 # Change this to non-default, if you want to have multiple destinations.
 # You then need to run a separate zrep for each dest. 
 # In this case, I suggest all runs use non-default value.
 #  eg:  ZREPTAG=zrep-1, ZREPTAG=zrep-2. 
 #  or,  ZREPTAG=zrep-uk, ZREPTAG=zrep-us
+#  ** make sure value can be used in a snapshot name as well, because it
+#  ** will be !
+#  !! also, make sure variable is EXPORTED !!
 ZREPTAG=${ZREPTAG:-zrep}
 
 #ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
