@@ -78,7 +78,7 @@ synctosnap(){
 	# need to undo whatever zrep_sync does 
 	newsentlist=`getallsnaps $srcfs|sed "1,/@$snapname/d"`
 	for snap in $newsentlist ; do
-		zfs inherit zrep:sent $snap
+		zfs inherit ${ZREPTAG}:sent $snap
 	done
 
 	zrep_unlock_fs $srcfs
@@ -101,7 +101,7 @@ _snapandsync(){
 
 
 
-	#srchost=`zfs get -H -o value zrep:src-host $srcfs`
+	#srchost=`zfs get -H -o value ${ZREPTAG}:src-host $srcfs`
 	#if [[ "$srchost" != "$Z_LOCAL_HOST" ]] ; then
 	#	zrep_errquit _sync: We are not master for $srcfs
 	#fi
@@ -157,7 +157,7 @@ _sync(){
 
 	print sending $newsnap to $desthost:$destfs
 	typeset timeinsec=`zrep_gettimeinseconds`
-	typeset senttimeprop="zrep:sent=$timeinsec"
+	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
 
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
 	# So we dont do that usually
@@ -181,10 +181,10 @@ _sync(){
 	# So try newer way first.
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 	if [[ $? -ne 0 ]] ; then
-		print WARNING: setting zrep:sent failed on $desthost:$destfs@$snapname
+		print WARNING: setting ${ZREPTAG}:sent failed on $desthost:$destfs@$snapname
 		print Using fallback. Go patch your system
-		zrep_ssh $desthost zfs set zrep:lastsent=${newsnap} $destfs
-		zrep_ssh $desthost zfs set zrep:lastsenttime=${timeinsec} $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsent=${newsnap} $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $destfs
 	fi
 
 	if (( Z_HAS_SNAPPROPS )) ; then
@@ -192,8 +192,8 @@ _sync(){
 	else
 		#note that this is only for old-ZFS compatibility.
 		# We dont really want to use this style if possible!
-		zfs set zrep:lastsent=${newsnap} $srcfs
-		zfs set zrep:lastsenttime=${timeinsec} $srcfs
+		zfs set ${ZREPTAG}:lastsent=${newsnap} $srcfs
+		zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
 	fi
 }
 
@@ -210,8 +210,8 @@ zrep_synconly(){
 
 	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for synconly
 
-	desthost=`zfs get -H -o value zrep:dest-host $srcfs`
-	destfs=`zfs get -H -o value zrep:dest-fs $srcfs`
+	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
+	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
 	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
@@ -271,8 +271,8 @@ zrep_sync(){
 
 	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for sync
 
-	desthost=`zfs get -H -o value zrep:dest-host $srcfs`
-	destfs=`zfs get -H -o value zrep:dest-fs $srcfs`
+	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
+	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
 	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
@@ -365,13 +365,13 @@ zrep_refresh(){
 		return 1
 	fi
 
-	master=`zfs get -H -o value -s local zrep:master $destfs`
+	master=`zfs get -H -o value -s local ${ZREPTAG}:master $destfs`
 	if [[ "$master" == "yes" ]] ; then
 		zrep_errquit Sorry, you cant run refresh on a master mode fs $destfs
 	fi
 
-	srchost=`zfs get -H -o value zrep:src-host $destfs`
-	srcfs=`zfs get -H -o value zrep:src-fs $destfs`
+	srchost=`zfs get -H -o value ${ZREPTAG}:src-host $destfs`
+	srcfs=`zfs get -H -o value ${ZREPTAG}:src-fs $destfs`
 
 	zrep_lock_fs $destfs
 	if [[ $? -ne 0 ]] ; then
@@ -395,7 +395,7 @@ zrep_refresh(){
 	
 	
 	typeset timeinsec=`zrep_gettimeinseconds`
-	typeset senttimeprop="zrep:sent=$timeinsec"
+	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
 
 	print DEBUG: refresh step 2: Pulling $newsnap
 
@@ -459,7 +459,7 @@ _refreshpull(){
 	fi
 
 	timeinsec=`zrep_gettimeinseconds`
-	senttimeprop="zrep:sent=$timeinsec"
+	senttimeprop="${ZREPTAG}:sent=$timeinsec"
 
 	if (( Z_HAS_SNAPPROPS ==0)) ; then
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
@@ -497,14 +497,14 @@ _expire(){
 		shift
 	fi
 
-	master=`zfs get -H -o value -s local zrep:master $1`
+	master=`zfs get -H -o value -s local ${ZREPTAG}:master $1`
 
 	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock
 
-	savecount=`zfs get -H -o value zrep:savecount $1`
+	savecount=`zfs get -H -o value ${ZREPTAG}:savecount $1`
 	# do not use (()) in case value unset
 	if [[ $savecount < 1 ]] ; then
-		zrep_errquit zrep:savecount on $1 set to improper value $savecount
+		zrep_errquit ${ZREPTAG}:savecount on $1 set to improper value $savecount
 	fi
 
 	if [[ "$master" == "yes" ]] ; then
@@ -539,10 +539,10 @@ _expire(){
 		#otherwise, go expire on remote side as well
 	fi
 
-	remotehost=`zfs get -H -o value zrep:dest-host $1`
-	remotefs=`zfs get -H -o value zrep:dest-fs $1`
+	remotehost=`zfs get -H -o value ${ZREPTAG}:dest-host $1`
+	remotefs=`zfs get -H -o value ${ZREPTAG}:dest-fs $1`
 	print Also running expire on $remotehost:$remotefs now...
-	sanity=`zrep_ssh $remotehost zfs get -H -o value -s local zrep:master $remotefs`
+	sanity=`zrep_ssh $remotehost zfs get -H -o value -s local ${ZREPTAG}:master $remotefs`
 
 	# Normally, dont quit on error. But this is super-bad.
 	if [[ "$sanity" == "yes" ]] ; then

@@ -32,7 +32,7 @@ zrep_status(){
 	while [[ "$1" != "" ]] ; do
 		fs="$1"
 
-		destfs=`zfs get -H -o value zrep:dest-fs $fs`
+		destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $fs`
 		if [[ "$destfs" == "-" ]] || [[ "$destfs" == "" ]]; then
 			zrep_errquit "$fs is not a zrep registered filesystem"
 		fi
@@ -48,7 +48,7 @@ zrep_status(){
 			# then we have to make sure left side is always
 			#  "src filesystem", not "named filesystem"
 			# then we have to check what the src fs is
-			srcfs=`zfs get -H -o value zrep:src-fs $fs`
+			srcfs=`zfs get -H -o value ${ZREPTAG}:src-fs $fs`
 		else
 			# Yes, okay, if -a is used, then
 			# technically, this isnt always "src".
@@ -57,7 +57,7 @@ zrep_status(){
 		fi
 
 		if ((verbose)) ; then
-			desthost=`zfs get -H -o value zrep:dest-host $srcfs`
+			desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "${date#????}"
 		else
 			printf "%-47s" $srcfs
@@ -80,8 +80,8 @@ zrep_status(){
 # Durn. Individual validation required.
 zrep_list_master(){
 	typeset srchost
-	for fs in `zfs get -H -o name -s local zrep:master "$@"` ; do
-		srchost=`zfs get -H -o value zrep:src-host $fs`
+	for fs in `zfs get -H -o name -s local ${ZREPTAG}:master "$@"` ; do
+		srchost=`zfs get -H -o value ${ZREPTAG}:src-host $fs`
 		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
 			print $fs
 		fi
@@ -117,7 +117,7 @@ list_verbose(){
 #  or "received"
 zrep_list(){
 	typeset fslist="" verbose=0
-	typeset printcmd="zfs get -H -o name -s $PROPTYPES zrep:dest-fs"
+	typeset printcmd="zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs"
 
 	case $1 in
 		-v)
@@ -157,7 +157,7 @@ zrep_list(){
 	# oh well. have to step through them one by one now, to
 	# print out the properties associated with each zrep filesystem
 
-	fslist=`zfs get -H -o name -s $PROPTYPES zrep:dest-fs`
+	fslist=`zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs`
 
 	for fs in $fslist ; do
 		print ${fs}:
