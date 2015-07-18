@@ -4,17 +4,29 @@
 # It contains all 'constant' definitions, as well as a few crucial
 # shared routines, such as lock handling ones.
 
-# These first three, are user tunables
+########################################################################
+# User tunable section. These may be overridden in the environment vars
 SSH=${SSH:-ssh}
-ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /path/to/zrep, if needed, for remote
-#ZREP_CREATE_FLAGS="-o whatever"   #Set for extra options on remote zfs create
+ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
+
+# set this if you want to use a different zfs property to store zrep info.
+# default has things like zrep:dest-host and zrep:dest-fs
+# Change this to non-default, if you want to have multiple destinations.
+# You then need to run a separate zrep for each dest. 
+# In this case, I suggest all runs use non-default value.
+#  eg:  ZREPTAG=zrep-1, ZREPTAG=zrep-2. 
+#  or,  ZREPTAG=zrep-uk, ZREPTAG=zrep-us
+ZREPTAG=${ZREPTAG:-zrep}
+
+#ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
 
 # If you have mbuffer installed, and wish to use it to speed up transfers,
 # define it in your environment. Sample definition:
 #MBUFFER="mbuffer -q -m 1G -s 128k"
 
 #########################################################################
-# Everyting else below here, should not be touched. First we have autodetect
+# Everyting else below here, should not be touched. 
+# First we have autodetect
 # routines, and then internal utilities such as locking functions.
 
 
@@ -159,10 +171,10 @@ zrep_release_global_lock(){
 # returns PID of zrep process holding a lock on filesystem, if there is one.
 # NOTE: prints "-" NOT "", if lock unheld
 zrep_fs_lock_pid(){
-	zfs get -H -o value zrep:lock-pid $1
+	zfs get -H -o value ${ZREPTAG}:lock-pid $1
 }
 zrep_has_fs_lock(){
-	typeset check=`zfs get -H -o value zrep:lock-pid $1`
+	typeset check=`zfs get -H -o value ${ZREPTAG}:lock-pid $1`
 	if ((check == $$)) ; then
 	return 0
 	else
@@ -199,8 +211,8 @@ zrep_lock_fs(){
 		print DEBUG: overiding stale lock on $1 from pid $check >/dev/fd/2
 	fi
 	
-	zfs set zrep:lock-pid=$$ $1
-	zfs set zrep:lock-time=`date +%Y%m%d%H%M%S` $1
+	zfs set ${ZREPTAG}:lock-pid=$$ $1
+	zfs set ${ZREPTAG}:lock-time=`date +%Y%m%d%H%M%S` $1
 	zrep_release_global_lock 
 }
 
@@ -212,8 +224,8 @@ zrep_unlock_fs(){
 	if ((lockpid != $$)) ; then return 1; fi
 
 	#since "we" already have it locked, no need to get global lock first
-	zfs inherit zrep:lock-time $1
-	zfs inherit zrep:lock-pid $1
+	zfs inherit ${ZREPTAG}:lock-time $1
+	zfs inherit ${ZREPTAG}:lock-pid $1
 
 	return 0
 }
