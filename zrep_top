@@ -49,6 +49,16 @@ usage(){
 	print http://www.bolthole.com/solaris/zrep/zrep.documentation.html
 }
 
+#special case this. sigh...
+if [ "$1" == "-t" ] ; then
+	if [ "$2" == "" ] ; then
+		usage
+	fi
+	ZREPTAG=$2   #deliberately dont quote this to avoid stupidity
+	shift
+	shift
+fi
+
 case "$1" in
 	"")
 		usage
