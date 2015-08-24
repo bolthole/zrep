@@ -54,7 +54,10 @@ if [ "$1" == "-t" ] ; then
 	if [ "$2" == "" ] ; then
 		usage
 	fi
-	ZREPTAG=$2   #deliberately dont quote this to avoid stupidity
+	#deliberately dont quote this to avoid stupidity or malice by user
+	ZREPTAG=$2
+	ZREP_PATH="$ZREP_PATH -t $ZREPTAG"
+	
 	shift
 	shift
 fi
