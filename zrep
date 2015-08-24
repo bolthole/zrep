@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.3
+ZREP_VERSION=1.3.1
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -379,7 +379,13 @@ zrep_list_master(){
 # Note that this is internal routine. we do not validate input.
 list_verbose(){
 	print $1:
+		# sneaky cheat: only user-set properties will
+		# match these 'source' types. So "grep zrep:" is not
+		# neccessary. Although we may pick up other user-set values,
+		# but that is not neccessarily a bad thing
 	zfs get -H -o property,value -s $PROPTYPES all $1
+	print "last snapshot synced: `getlastsnapsent $1`"
+
 }
 
 
@@ -398,11 +404,11 @@ list_verbose(){
 #  -v gives all properties of each filesystem
 #  Give only one of -L or -v 
 #
-# This works because we only set this property on the actual fs.
-# "source type" on snapshots for this property is "inherited" not local
-#  or "received"
 zrep_list(){
 	typeset fslist="" verbose=0
+	# This works because we only set this property on the actual fs.
+	# "source type" on snapshots for this property is "inherited" not local
+	#  or "received"
 	typeset printcmd="zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs"
 
 	case $1 in
@@ -412,6 +418,7 @@ zrep_list(){
 		shift
 		;;
 		-L)
+		# reminder: cant have this, AND verbose.
 		printcmd="zrep_list_master"
 		shift
 		;;
@@ -433,7 +440,8 @@ zrep_list(){
 
 	# Must be "list all" now. But which output format?
 
-	# if not verbose, we have a nice shortcut
+	# If not verbose, we have a nice shortcut to just list
+	# all filesystems that zrep has marked.
 	if (( $verbose == 0))  ; then
 		$printcmd
 		return
@@ -446,12 +454,7 @@ zrep_list(){
 	fslist=`zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs`
 
 	for fs in $fslist ; do
-		print ${fs}:
-		# sneaky cheat: only user-set properties will
-		# match these 'source' types. So "grep zrep:" is not
-		# neccessary. Although we may pick up other user-set values,
-		# but that is not neccessarily a bad thing
-		zfs get -H -o property,value -s $PROPTYPES all $fs
+		$printcmd $fs
 		print ""
 	done
 	
