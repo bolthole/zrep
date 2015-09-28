@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.3.1
+ZREP_VERSION=1.3.2
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars
@@ -47,6 +47,8 @@ usage(){
 	print ''
 	print ' More detailed examples can be found at:'
 	print http://www.bolthole.com/solaris/zrep/zrep.documentation.html
+	print ''
+	print 'See the above documentation for details on using the -t flag'
 }
 
 #special case this. sigh...
@@ -56,10 +58,13 @@ if [ "$1" == "-t" ] ; then
 	fi
 	#deliberately dont quote this to avoid stupidity or malice by user
 	ZREPTAG=$2
-	ZREP_PATH="$ZREP_PATH -t $ZREPTAG"
 	
 	shift
 	shift
+fi
+
+if [ "$ZREPTAG" != "" ] ; then
+	ZREP_PATH="$ZREP_PATH -t $ZREPTAG"
 fi
 
 case "$1" in
