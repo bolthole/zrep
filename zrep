@@ -271,6 +271,9 @@ zrep_ssh(){
 		localhost|$Z_LOCAL_HOST)
 			ssh_cmd=""
 			;;
+		127.0.0.1|$Z_LOCAL_HOST)
+			ssh_cmd=""
+			;;
 		*)
 			ssh_cmd="$SSH $1"
 			;;
