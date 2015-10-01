@@ -33,14 +33,23 @@ ZREPTAG=${ZREPTAG:-zrep}
 # define it in your environment. Sample definition:
 #MBUFFER="mbuffer -q -m 1G -s 128k"
 
+# If you want to override uname -n, with an official
+# canonical name for zrep:src-host, use this environment variable when you 
+# run "zrep init"
+#ZREP_SRC_HOST=somehost.your.dom
+
+
+
 #########################################################################
 # Everyting else below here, should not be touched. 
 # First we have autodetect
 # routines, and then internal utilities such as locking functions.
-
-
-Z_LOCAL_HOST=`uname -n`
-Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
+if [[ "$ZREP_SRC_HOST" != "" ] ; then
+	Z_LOCAL_HOST=${ZREP_SRC_HOST}
+else
+	Z_LOCAL_HOST=`uname -n`
+	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
+fi
 
 # Solaris hack, to use native perl, which isnt always in $PATH,but should
 # always be there. It's also simple, straightforward, and non-extended.
