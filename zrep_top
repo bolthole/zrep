@@ -129,6 +129,8 @@ case "$1" in
 		_refreshpull $1
 		;;
 	*)
+		print "ERROR: Dont know what to do with: $@"
+		print ""
 		usage
 		;;
 esac
