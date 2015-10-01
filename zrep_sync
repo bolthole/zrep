@@ -5,6 +5,61 @@
 # basic snap routines, and init routines, are in zrep_snap
 
 
+
+## file-internal routine that gets used a lot in zrep_sync
+_gensentprop(){
+	typeset timeinsec=`zrep_gettimeinseconds`
+	print "${ZREPTAG}:sent=$timeinsec"
+}
+
+
+# This is a RECOVERY ROUTINE ONLY.
+# I put lots of sanity checking in here, that doesnt make sense to keep
+# with a more general case internal routine
+# Certain people say that for some odd reason on their systems, the 
+# zfs send completes, but zrep gets killed before full completion.
+# To help people save the time on resyncing hundreds of TB, 
+# give them a way to finish off the zfs stuffs.
+# This only works with newstyle ZFS that allows property setting on snapshots
+# Needs to follow whatever is done in _sync(), after the zfs send
+#
+zrep_sentsync(){
+	typeset srcfs="$1"
+
+	if (( ! Z_HAS_SNAPPROPS )) ; then
+		zrep_errquit This sentsync operation only supported with modern ZFS implementations
+	fi
+
+	zfs list -t snapshot "$1" >/dev/null 2>&1
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Expected snapshot for $1. Cannot continue
+	fi
+	case "$1" in
+		*@${ZREPTAG}_[0-9]*)
+		:
+		;;
+		*)
+		zrep_errquit $1 does not follow zrep naming standards. Cannot continue
+		;;
+	esac
+
+	typeset sentcheck=`zfs get -H -o value ${ZREPTAG}:sent $srcfs`
+	if [[ "$sentcheck" != "-" ]] ; then
+		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
+	fi
+
+	typeset desthost destfs snapname
+	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
+	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
+	snapname=${srcfs#*@}
+
+	typeset	senttimeprop="`_gensentprop`"
+
+	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
+
+	zfs set $senttimeprop  ${srcfs}
+}
+
 ####################
 # synctosnap: called by zrep_sync, if a specific snapshot is specified.
 #
@@ -178,12 +233,17 @@ _sync(){
 		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
 	fi
 
+
+	##################################################
+	##### Okay. data sync completed. Now register that fact with ZFS properties.
+	##### If you modify below here, you also need to update zrep_sentsync
+
 	#Even if we are "old mode", other side may not be.
 	# So try newer way first.
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 	if [[ $? -ne 0 ]] ; then
 		print WARNING: setting ${ZREPTAG}:sent failed on $desthost:$destfs@$snapname
-		print Using fallback. Go patch your system
+		print Using fallback methods. You should go patch $destfs to have newer ZFS version
 		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsent=${newsnap} $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $destfs
 	fi
@@ -394,9 +454,7 @@ zrep_refresh(){
 			;;					
 	esac
 	
-	
-	typeset timeinsec=`zrep_gettimeinseconds`
-	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
+	typeset	senttimeprop="`_gensentprop`"
 
 	print DEBUG: refresh step 2: Pulling $newsnap
 
@@ -428,7 +486,7 @@ zrep_refresh(){
 # However, this routine is definitely not supposed to be user visible
 #   .. eh... maybe someday. but initial design is "private"
 _refreshpull(){
-	typeset fs snapname lastsent latest timeinsec senttimeprop
+	typeset fs snapname lastsent latest
 
 	snapname="$1"
 	fs=${snapname%@*}
@@ -459,8 +517,7 @@ _refreshpull(){
 		zrep_errquit Sync error: $snapname is not latest snap for $fs
 	fi
 
-	timeinsec=`zrep_gettimeinseconds`
-	senttimeprop="${ZREPTAG}:sent=$timeinsec"
+	typeset senttimeprop="`_gensentprop`"
 
 	if (( Z_HAS_SNAPPROPS ==0)) ; then
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
