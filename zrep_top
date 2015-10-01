@@ -87,13 +87,17 @@ case "$1" in
 		shift
 		zrep_changeconfig "$@"
 		;;
-	sync|-S)
+	sentsync)
 		shift
-		zrep_sync "$@"
+		zrep_sentsync "$1" #this is a 'something is broken" operation, so make it limited
 		;;
 	snaponly)
 		shift
 		zrep_snaponly "$@"
+		;;
+	sync|-S)
+		shift
+		zrep_sync "$@"
 		;;
 	synconly)
 		shift
