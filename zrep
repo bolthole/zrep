@@ -44,7 +44,7 @@ ZREPTAG=${ZREPTAG:-zrep}
 # Everyting else below here, should not be touched. 
 # First we have autodetect
 # routines, and then internal utilities such as locking functions.
-if [[ "$ZREP_SRC_HOST" != "" ] ; then
+if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
 else
 	Z_LOCAL_HOST=`uname -n`
