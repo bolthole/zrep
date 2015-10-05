@@ -217,7 +217,7 @@ clearquit(){
 setfsconfigs(){
 	typeset srcfs="$1" desthost="$2" destfs="$3" fsname
 	if [[ "$destfs" == "" ]] ; then
-		zrep_errquit "${ZREPTAG}: no dest fs specified"
+		zrep_errquit "zrep: no dest fs specified"
 	fi
 	zfs list $srcfs >/dev/null ||zrep_errquit "filesystem $srcfs must exist already"
 
@@ -370,7 +370,11 @@ zrep_init(){
 
 
 zrep_changeconfig(){
+	if [[ "$1" == "-f" ]] ; then
+		return setfsconfigs $2 $3 $4
+	fi
 	typeset srcfs="$1" desthost="$2" destfs="$3" check
+	
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
 	fi
