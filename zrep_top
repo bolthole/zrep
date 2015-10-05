@@ -27,7 +27,7 @@ usage(){
 	print 'zrep refresh ZFS/fs               -- pull version of sync'
 	print 'zrep (list|-l) [-Lv]'
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
-	print 'zrep (changeconfig|-C) ZFS/fs remotehost remoteZFSpool/fs'
+	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep failover [-L] ZFS/fs'
 	print 'zrep takeover [-L] ZFS/fs'
 	print 'zrep clear ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
