@@ -163,7 +163,7 @@ makesnap(){
 	#print DEBUG old=$oldseq new=$newseqX >/dev/fd/2
 	newsnap="$1@${ZREPTAG}_$newseqX"
 	
-	zfs snapshot $newsnap
+	zfs snapshot $Z_SNAP_R $newsnap
 	if [[ $? -eq 0 ]] ; then
 		print  $newsnap; return 0
 	else
@@ -214,14 +214,36 @@ clearquit(){
 # Shared internal routine.
 # Set the to/from properties on a fs for zrep
 # Called by zrep_init  and zrep_changeconfig
+# Usage: 
+#  setfsconfigs srcfs desthost destfs
+#  setfsconfigs -d destfs srchost srcfs
+#
 setfsconfigs(){
-	typeset srcfs="$1" desthost="$2" destfs="$3" fsname
+	typeset srchost srcfs desthost destfs fsname
+
+	if [[ "$1" == "-d" ]] ; then
+		srchost="$3"
+		srcfs="$4"
+		desthost=$Z_LOCAL_HOST
+		destfs="$2"
+		fsname=${destfs}
+	else
+		srchost=$Z_LOCAL_HOST
+		srcfs="$1"
+		desthost="$2"
+		destfs="$3"
+		fsname=${srcfs}
+	fi
+
+
 	if [[ "$destfs" == "" ]] ; then
 		zrep_errquit "zrep: no dest fs specified"
 	fi
-	zfs list $srcfs >/dev/null ||zrep_errquit "filesystem $srcfs must exist already"
+	zfs list $fsname >/dev/null ||zrep_errquit "filesystem $fsname must exist already"
 
-	fsname=${srcfs##*/}
+	#
+	# This is really only for when we are called from init I think?
+	#
 	case $destfs in
 		# Originally, I had this passthrough only if fsname was at end
 		# However,we must allow destfs to have different leaf name,
@@ -231,15 +253,18 @@ setfsconfigs(){
 			;;
 		*)
 			# Only the pool name given. Let's make it explicit.
-			destfs=$destfs/$fsname
+			# Sadly this wont work if intermediary root
+			# is given. which is technically legal.
+			typeset basefs=${fsname##*/}
+			destfs=$destfs/$basefs
 			;;
 	esac
 
-	zfs set ${ZREPTAG}:src-fs=$srcfs		$srcfs
-	zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST	$srcfs
-	zfs set ${ZREPTAG}:dest-fs=$destfs		$srcfs
-	zfs set ${ZREPTAG}:dest-host=$desthost	$srcfs
-	zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$srcfs
+	zfs set ${ZREPTAG}:src-fs=$srcfs		$fsname
+	zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST	$fsname
+	zfs set ${ZREPTAG}:dest-fs=$destfs		$fsname
+	zfs set ${ZREPTAG}:dest-host=$desthost		$fsname
+	zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$fsname
 }
 
 
@@ -247,7 +272,7 @@ setfsconfigs(){
 # Some day, will allow init from pre-existing snaps< But not today!
 # Note that remote fs must share same stem name as source. (for now?)
 zrep_init(){
-	typeset srcfs="$1" desthost="$2" destfs="$3" fsname snap check vol=0
+	typeset srcfs="$1" desthost="$2" destfs="$3" snap check vol=0
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
 	fi
@@ -289,7 +314,7 @@ zrep_init(){
 
 	snap="${srcfs}@${ZREPTAG}_000000"
 	print Creating snapshot $snap
-	zfs snapshot $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
+	zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
 
 	# Note that we may not want to use -p for normal zrep syncs
 	# We also should not use -F for normal recv. See workflow.txt
@@ -375,7 +400,9 @@ zrep_init(){
 
 zrep_changeconfig(){
 	if [[ "$1" == "-f" ]] ; then
-		return setfsconfigs $2 $3 $4
+		# skip safety checks
+		shift
+		return setfsconfigs $@
 	fi
 	typeset srcfs="$1" desthost="$2" destfs="$3" check
 	
@@ -390,7 +417,7 @@ zrep_changeconfig(){
 		zrep_errquit Use zrep init on $srcfs instead
 	fi
 
-	setfsconfigs $srcfs $desthost $destfs
+	setfsconfigs $@
 	
 }
 
