@@ -92,3 +92,7 @@ version 1.4: September 2015
 	finish has failed.
 	Also added ZREP_SRC_HOST support
 
+version 1.5: October 2015
+	Added ZREP_R variable, to allow for recursive use
+	Modified changeconfig to have optional -d flag, to allow
+	changing the config when run on remote/"dest" filesystems
