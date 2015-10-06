@@ -256,6 +256,10 @@ zrep_init(){
 	check="`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`"
 	if [[ "$check" != "-" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
+		check="`zfs get -H -o value ${ZREPTAG}:master $srcfs`"
+		if [[ "$check" != "-" ]] ; then
+			zrep_errquit "${ZREPTAG}:master detected!!"
+		fi
 		zrep_errquit "To re-initialize, first use zrep clear $srcfs"
 	fi
 	check="`zfs get -H -o value type $srcfs`"
