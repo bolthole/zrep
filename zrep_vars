@@ -49,6 +49,10 @@ else
 	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
 fi
 
+if [[ "$ZREP_R" == "-R" ]] ; then
+	Z_SNAP_R="-r"
+fi
+
 # Solaris hack, to use native perl, which isnt always in $PATH,but should
 # always be there. It's also simple, straightforward, and non-extended.
 # But on other OSs will fall back to use default perl.
