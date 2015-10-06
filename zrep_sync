@@ -221,10 +221,10 @@ _sync(){
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
 	if [[ "$MBUFFER" != "" ]] ; then
-		zfs send -I $lastsent $newsnap | $MBUFFER |
+		zfs send ${ZREP_R} -I $lastsent $newsnap | $MBUFFER |
 		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
 	else
-		zfs send -I $lastsent $newsnap | 
+		zfs send ${ZREP_R} -I $lastsent $newsnap | 
 		   zrep_ssh $desthost zfs recv $destfs
 	fi
 
@@ -523,7 +523,7 @@ _refreshpull(){
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
 	fi
 
-	zfs send -I $lastsent $latest
+	zfs send ${ZREP_R} -I $lastsent $latest
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull

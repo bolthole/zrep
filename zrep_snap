@@ -311,18 +311,18 @@ zrep_init(){
 		fi
 
 		if [[ "$MBUFFER" != "" ]] ; then
-		zfs send -p $snap | $MBUFFER |
+		zfs send ${ZREP_R} -p $snap | $MBUFFER |
 			zrep_ssh $desthost "$MBUFFER |
 				zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		else
-		zfs send -p $snap |
+		zfs send ${ZREP_R} -p $snap |
 			zrep_ssh $desthost zfs recv $MOUNTFILTER $READONLYPROP -F $destfs
 		fi
 	else
 		## arg.. Patch your systems!!
 		# Doesn't support "recv -x mountpoint", so cant use -p in send
 		# This means we have to manually set props lower down as well.
-		zfs send $snap |
+		zfs send ${ZREP_R} $snap |
 		  zrep_ssh $desthost zfs recv $READONLYPROP -F $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then

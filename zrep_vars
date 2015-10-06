@@ -5,7 +5,7 @@
 # shared routines, such as lock handling ones.
 
 ########################################################################
-# User tunable section. These may be overridden in the environment vars
+# User tunable section. These may be overridden in user environment vars
 SSH=${SSH:-ssh}
 ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
 
@@ -26,6 +26,10 @@ ZREPTAG=${ZREPTAG:-zrep}
 # If you have mbuffer installed, and wish to use it to speed up transfers,
 # define it in your environment. Sample definition:
 #MBUFFER="mbuffer -q -m 1G -s 128k"
+
+# If you want to recursively create/send snapshots, set this to -R
+#  (or use the -R option to BOTH zrep init and zrep sync
+#ZREP_R=-R
 
 # If you want to override uname -n, with an official
 # canonical name for zrep:src-host, use this environment variable when you 
