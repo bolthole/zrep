@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.5
+ZREP_VERSION=1.5.1
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -692,6 +692,8 @@ clearquit(){
 
 
 # Shared internal routine.
+#  (internal only to zrep_snap, even!)
+#
 # Set the to/from properties on a fs for zrep
 # Called by zrep_init  and zrep_changeconfig
 # Usage: 
@@ -870,7 +872,7 @@ zrep_init(){
 	# Also, it avoids things like "zrep sync all" from attempting
 	# to sync it before initial sync has been done.
 	# We don't even have to zrep_lock_fs until this is set
-	
+	#  Make sure value this matches zrep_sentsync
 	zfs set ${ZREPTAG}:master=yes	$srcfs
 
 	print Initialization copy of $srcfs to $desthost:$destfs complete
@@ -884,7 +886,7 @@ zrep_changeconfig(){
 		shift
 		return setfsconfigs $@
 	fi
-	typeset srcfs="$1" desthost="$2" destfs="$3" check
+	typeset srcfs="$1" check
 	
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
@@ -963,6 +965,13 @@ zrep_sentsync(){
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 
 	zfs set $senttimeprop  ${srcfs}
+	# This will be redundant for recovery, but crucial for when
+	# user is trying to convert existing snapshot to
+	# zrep snapshot.
+	# Make sure it matches  zrep_init
+	zfs set ${ZREPTAG}:master=yes	${srcfs}
+
+	
 }
 
 ####################
