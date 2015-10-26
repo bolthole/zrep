@@ -392,7 +392,7 @@ zrep_init(){
 	# Also, it avoids things like "zrep sync all" from attempting
 	# to sync it before initial sync has been done.
 	# We don't even have to zrep_lock_fs until this is set
-	
+	#  Make sure value this matches zrep_sentsync
 	zfs set ${ZREPTAG}:master=yes	$srcfs
 
 	print Initialization copy of $srcfs to $desthost:$destfs complete
