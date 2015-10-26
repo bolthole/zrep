@@ -58,6 +58,13 @@ zrep_sentsync(){
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 
 	zfs set $senttimeprop  ${srcfs}
+	# This will be redundant for recovery, but crucial for when
+	# user is trying to convert existing snapshot to
+	# zrep snapshot.
+	# Make sure it matches  zrep_init
+	zfs set ${ZREPTAG}:master=yes	${srcfs}
+
+	
 }
 
 ####################
