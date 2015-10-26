@@ -212,6 +212,8 @@ clearquit(){
 
 
 # Shared internal routine.
+#  (internal only to zrep_snap, even!)
+#
 # Set the to/from properties on a fs for zrep
 # Called by zrep_init  and zrep_changeconfig
 # Usage: 
@@ -404,7 +406,7 @@ zrep_changeconfig(){
 		shift
 		return setfsconfigs $@
 	fi
-	typeset srcfs="$1" desthost="$2" destfs="$3" check
+	typeset srcfs="$1" check
 	
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
