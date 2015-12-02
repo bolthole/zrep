@@ -1,7 +1,8 @@
 License for zrep   ( http://www.bolthole.com/solaris/zrep )
-Author: Philip Brown  phil@bolthole.com  2012
+Author: Philip Brown  phil@bolthole.com  2012 - 2015
 
 Bugs, comments, and requests are encouraged
+https://github.com/bolthole/zrep/issues/
 
 Permission is hereby given for you to freely(but without warrantee)
 use the zrep program.
