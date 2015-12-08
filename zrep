@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.5.1
+ZREP_VERSION=1.5.2
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -37,6 +37,15 @@ ZREPTAG=${ZREPTAG:-zrep}
 #  (or use the -R option to BOTH zrep init and zrep sync
 #ZREP_R=-R
 
+# The default incremental flag is -I. 
+#   UNLESS you set ZREPTAG to something other than zrep, in which case
+#   you will have multiple zrep snapshot names probably going to different
+#   places, and expiration wont work properly on the remote sides
+#   So we will autochange incremental type to -i. .. unless you explicitly 
+#   set an override value for INC_FLAG in either case.
+#ZREP_INC_FLAG=-I
+
+
 # If you want to override uname -n, with an official
 # canonical name for zrep:src-host, use this environment variable when you 
 # run "zrep init"
@@ -58,6 +67,12 @@ fi
 if [[ "$ZREP_R" == "-R" ]] ; then
 	Z_SNAP_R="-r"
 fi
+
+if [[ "$ZREPTAG" != "zrep" ]] ; then
+	ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-i"}
+fi
+# ensure it is set to SOMETHING by default
+ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
 # Solaris hack, to use native perl, which isnt always in $PATH,but should
 # always be there. It's also simple, straightforward, and non-extended.
@@ -1135,10 +1150,11 @@ _sync(){
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
 	if [[ "$MBUFFER" != "" ]] ; then
-		zfs send ${ZREP_R} -I $lastsent $newsnap | $MBUFFER |
+		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap |
+		   $MBUFFER |
 		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
 	else
-		zfs send ${ZREP_R} -I $lastsent $newsnap | 
+		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap | 
 		   zrep_ssh $desthost zfs recv $destfs
 	fi
 
@@ -1437,7 +1453,7 @@ _refreshpull(){
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
 	fi
 
-	zfs send ${ZREP_R} -I $lastsent $latest
+	zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $latest
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
