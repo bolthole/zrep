@@ -31,6 +31,15 @@ ZREPTAG=${ZREPTAG:-zrep}
 #  (or use the -R option to BOTH zrep init and zrep sync
 #ZREP_R=-R
 
+# The default incremental flag is -I. 
+#   UNLESS you set ZREPTAG to something other than zrep, in which case
+#   you will have multiple zrep snapshot names probably going to different
+#   places, and expiration wont work properly on the remote sides
+#   So we will autochange incremental type to -i. .. unless you explicitly 
+#   set an override value for INC_FLAG in either case.
+#ZREP_INC_FLAG=-I
+
+
 # If you want to override uname -n, with an official
 # canonical name for zrep:src-host, use this environment variable when you 
 # run "zrep init"
@@ -52,6 +61,12 @@ fi
 if [[ "$ZREP_R" == "-R" ]] ; then
 	Z_SNAP_R="-r"
 fi
+
+if [[ "$ZREPTAG" != "zrep" ]] ; then
+	ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-i"}
+fi
+# ensure it is set to SOMETHING by default
+ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
 # Solaris hack, to use native perl, which isnt always in $PATH,but should
 # always be there. It's also simple, straightforward, and non-extended.
