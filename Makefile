@@ -18,4 +18,4 @@ diffs:
 # sed -n 's/.*\(zrep:.*\)=.*/\1/p' zrep_*|sort -u
 
 listfuncs:
-	grep '^[_a-z].*[(]' $(ZSOURCE)
+	grep '^[_a-z].*[(].*[{]' $(ZSOURCE)
