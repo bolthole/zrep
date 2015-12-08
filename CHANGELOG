@@ -96,3 +96,7 @@ version 1.5: October 2015
 	Added ZREP_R variable, to allow for recursive use
 	Modified changeconfig to have optional -d flag, to allow
 	changing the config when run on remote/"dest" filesystems
+
+version 1.4.2: Dec 2015
+	Added ZREP_INC_FLAG to allow for -I/-i override in zfs send
+	Plus changed default when using ZREP_R
