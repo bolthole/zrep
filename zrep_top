@@ -64,9 +64,22 @@ if [ "$1" == "-t" ] ; then
 	shift
 fi
 
+# If custom zrep tag, then probably multiple layers of snapshots.
+# In this case, DO NOT send all intermediate snapshots for replication
+if [[ "$ZREPTAG" != "zrep" ]] ; then
+	ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-i"}
+fi
+# ensure it is set to SOMETHING by default. Default is to send all
+ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
+
+
+
+
 if [ "$ZREPTAG" != "" ] ; then
 	ZREP_PATH="$ZREP_PATH -t $ZREPTAG"
 fi
+
+
 
 case "$1" in
 	"")
