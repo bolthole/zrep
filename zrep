@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.5.2
+ZREP_VERSION=1.5.3
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -51,12 +51,19 @@ ZREPTAG=${ZREPTAG:-zrep}
 # run "zrep init"
 #ZREP_SRC_HOST=somehost.your.dom
 
+# Solaris hack, to use native perl, which isnt always in $PATH,but should
+# always be there. It's also simple, straightforward, and non-extended.
+# On other OSs this path will not exist, so it will just fall back to
+# use the system default perl. Unless user wants to specify perl path.
+PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
+
 
 
 #########################################################################
+#########################################################################
 # Everyting else below here, should not be touched. 
-# First we have autodetect
-# routines, and then internal utilities such as locking functions.
+# First we have autodetect routines,
+# and then internal utilities such as locking functions.
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
 else
@@ -68,16 +75,9 @@ if [[ "$ZREP_R" == "-R" ]] ; then
 	Z_SNAP_R="-r"
 fi
 
-if [[ "$ZREPTAG" != "zrep" ]] ; then
-	ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-i"}
-fi
-# ensure it is set to SOMETHING by default
-ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
+# used to have polymorphic assign of ZRE_INC_FLAG here, but had
+# to move it to AFTER checking if -t option used
 
-# Solaris hack, to use native perl, which isnt always in $PATH,but should
-# always be there. It's also simple, straightforward, and non-extended.
-# But on other OSs will fall back to use default perl.
-PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 # Capability for this  does not show in usage.
 # So, just tie this to MU6 related check,like HAS_SNAPPROPS
@@ -1806,9 +1806,22 @@ if [ "$1" == "-t" ] ; then
 	shift
 fi
 
+# If custom zrep tag, then probably multiple layers of snapshots.
+# In this case, DO NOT send all intermediate snapshots for replication
+if [[ "$ZREPTAG" != "zrep" ]] ; then
+	ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-i"}
+fi
+# ensure it is set to SOMETHING by default. Default is to send all
+ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
+
+
+
+
 if [ "$ZREPTAG" != "" ] ; then
 	ZREP_PATH="$ZREP_PATH -t $ZREPTAG"
 fi
+
+
 
 case "$1" in
 	"")
