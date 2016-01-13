@@ -593,7 +593,15 @@ _expire(){
 		mv $tmpfile.2 $tmpfile
 		for snap in `cat $tmpfile` ; do
 			print DEBUG: expiring $snap
-			zfs destroy $snap
+			# Paranoia is good.
+			case $snap in
+			     *@*)
+			    zfs destroy -r $snap
+			    ;;
+			    *)
+			    zrep_errquit "Expire was about to destroy NON-snapshot $snap"
+			    ;;
+			esac
 		done
 	fi
 	rm $tmpfile
