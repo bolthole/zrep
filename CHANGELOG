@@ -100,3 +100,8 @@ version 1.5: October 2015
 version 1.4.2: Dec 2015
 	Added ZREP_INC_FLAG to allow for -I/-i override in zfs send
 	Plus changed default when using ZREP_R
+
+version 1.5.4
+	(rollup of changes for 1.5.x)
+	Added bugfixes for expiration, and use of -t, when using ZREP_R
+	Added -d option to zrep changeconfig
