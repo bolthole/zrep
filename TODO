@@ -15,3 +15,6 @@ BLOCKED on these changes:
   BLOCK: can't find way to calculate this?
    (Another problem is in dealing with loong fs names?
 
+ make lastsent be a value in main fs?
+  but problem is if user manually deletes zrep snapshots,
+   then value will be invalid
