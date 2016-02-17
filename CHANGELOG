@@ -105,3 +105,6 @@ version 1.5.4
 	(rollup of changes for 1.5.x)
 	Added bugfixes for expiration, and use of -t, when using ZREP_R
 	Added -d option to zrep changeconfig
+
+version 1.5.5
+	bugfix: return setfsconfigs $@

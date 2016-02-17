@@ -404,7 +404,8 @@ zrep_changeconfig(){
 	if [[ "$1" == "-f" ]] ; then
 		# skip safety checks
 		shift
-		return setfsconfigs $@
+		setfsconfigs $@
+		return 
 	fi
 	typeset srcfs="$1" check
 	

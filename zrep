@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.5.4
+ZREP_VERSION=1.5.5
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -899,7 +899,8 @@ zrep_changeconfig(){
 	if [[ "$1" == "-f" ]] ; then
 		# skip safety checks
 		shift
-		return setfsconfigs $@
+		setfsconfigs $@
+		return 
 	fi
 	typeset srcfs="$1" check
 	
