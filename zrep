@@ -324,10 +324,11 @@ zrep_gettimeinseconds(){
 }
 
 _debugprint(){
-	if ((verbose)) ; then
+	if [[ "$DEBUG" != "" ]] ; then
 	   print DEBUG: $@
 	fi	 
-}###### zrep_status
+}
+###### zrep_status
 
 # be sure to have included zrep_vars
 
