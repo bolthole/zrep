@@ -316,3 +316,9 @@ zrep_gettimeinseconds(){
 	typeset PATH=$PERL_BIN:$PATH
 	perl -e 'print int(time);'
 }
+
+_debugprint(){
+	if ((verbose)) ; then
+	   print DEBUG: $@
+	fi	 
+}
