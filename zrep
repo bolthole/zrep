@@ -29,6 +29,12 @@ ZREPTAG=${ZREPTAG:-zrep}
 
 #ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
 
+# The fastest alternative transport, IF you have multicore/thread CPUs,
+# would seem to be bbcp. If you have both, then you probably want to 
+# define something like this in your environment:
+#BBCP="bbcp -s 8"
+
+
 # If you have mbuffer installed, and wish to use it to speed up transfers,
 # define it in your environment. Sample definition:
 #MBUFFER="mbuffer -q -m 1G -s 128k"
@@ -836,6 +842,9 @@ zrep_init(){
 		zfs send ${ZREP_R} -p $snap | $MBUFFER |
 			zrep_ssh $desthost "$MBUFFER |
 				zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
+		elif [[ "$BBCP" != "" ]] ; then
+		$BBCP -N io "zfs send -p $snap" \
+		    "$desthost:zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		else
 		zfs send ${ZREP_R} -p $snap |
 			zrep_ssh $desthost zfs recv $MOUNTFILTER $READONLYPROP -F $destfs
@@ -1154,6 +1163,9 @@ _sync(){
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap |
 		   $MBUFFER |
 		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
+	elif [[ "$BBCP" != "" ]] ; then
+		$BBCP -N io "zfs send -I $lastsent $newsnap" \ 
+		   "$desthost:zfs recv $destfs"
 	else
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap | 
 		   zrep_ssh $desthost zfs recv $destfs
@@ -1392,6 +1404,9 @@ zrep_refresh(){
 	if [[ "$MBUFFER" != "" ]] ; then
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
 		  $MBUFFER | zfs recv $destfs
+	elif [[ "$BBCP" != "" ]] ; then
+		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
+		  "zfs recv $destfs"
 	else
 		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
 		  zfs recv $destfs

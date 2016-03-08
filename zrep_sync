@@ -231,6 +231,9 @@ _sync(){
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap |
 		   $MBUFFER |
 		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
+	elif [[ "$BBCP" != "" ]] ; then
+		$BBCP -N io "zfs send -I $lastsent $newsnap" \ 
+		   "$desthost:zfs recv $destfs"
 	else
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap | 
 		   zrep_ssh $desthost zfs recv $destfs
@@ -469,6 +472,9 @@ zrep_refresh(){
 	if [[ "$MBUFFER" != "" ]] ; then
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
 		  $MBUFFER | zfs recv $destfs
+	elif [[ "$BBCP" != "" ]] ; then
+		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
+		  "zfs recv $destfs"
 	else
 		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
 		  zfs recv $destfs
