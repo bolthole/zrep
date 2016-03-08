@@ -23,6 +23,9 @@ ZREPTAG=${ZREPTAG:-zrep}
 
 #ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
 
+# If you'd like a little extra debug output define this env var to something
+#DEBUG=1
+
 # If you have mbuffer installed, and wish to use it to speed up transfers,
 # define it in your environment. Sample definition:
 #MBUFFER="mbuffer -q -m 1G -s 128k"
