@@ -231,6 +231,10 @@ _sync(){
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap |
 		   $MBUFFER |
 		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
+	elif [[ "$BBCP" != "" ]] ; then
+	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
+		$BBCP -N io "$SENDCMD" \
+		   "$desthost:zfs recv $destfs"
 	else
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap | 
 		   zrep_ssh $desthost zfs recv $destfs
@@ -371,7 +375,7 @@ zrep_sync(){
 
 		elapsed=$((currtime - snaptime))
 		if ((elapsed > quiettime)) ; then
-			print DEBUG: $elapsed seconds have elapsed since last sync of $srcfs
+			_debugprint $elapsed seconds have elapsed since last sync of $srcfs
 			zrep_errquit quiet time limit of $quiettime seconds exceeded for busy fs $srcfs
 		else
 			print Quiet mode: skipping busy fs $srcfs at `date`
@@ -447,7 +451,7 @@ zrep_refresh(){
 		zrep_errquit Cannot lock $destfs. Cannot continue
 	fi
 
-	print DEBUG: refresh step 1: Going to $srchost to snapshot $destfs
+	_debugprint refresh step 1: Going to $srchost to snapshot $destfs
 	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
@@ -464,11 +468,14 @@ zrep_refresh(){
 	
 	typeset	senttimeprop="`_gensentprop`"
 
-	print DEBUG: refresh step 2: Pulling $newsnap
+	_debugprint refresh step 2: Pulling $newsnap
 
 	if [[ "$MBUFFER" != "" ]] ; then
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
 		  $MBUFFER | zfs recv $destfs
+	elif [[ "$BBCP" != "" ]] ; then
+		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
+		  "zfs recv $destfs"
 	else
 		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
 		  zfs recv $destfs
@@ -499,7 +506,7 @@ _refreshpull(){
 	snapname="$1"
 	fs=${snapname%@*}
 
-	print DEBUG: _refreshpull: snapname=$snapname, fs=$fs >/dev/fd/2
+	_debugprint _refreshpull: snapname=$snapname, fs=$fs >/dev/fd/2
 
 	zrep_lock_fs $fs
 	if [[ $? -ne 0  ]] ; then
@@ -592,7 +599,7 @@ _expire(){
 		head -$currcount $tmpfile >$tmpfile.2
 		mv $tmpfile.2 $tmpfile
 		for snap in `cat $tmpfile` ; do
-			print DEBUG: expiring $snap
+			_debugprint expiring $snap
 			# Paranoia is good.
 			case $snap in
 			     *@*)
