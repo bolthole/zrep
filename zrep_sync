@@ -233,7 +233,7 @@ _sync(){
 		   "$desthost:zfs recv $destfs"
 	else
 		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
-		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs
+		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
 	fi
 
 	if [[ $? -ne 0 ]] ; then
