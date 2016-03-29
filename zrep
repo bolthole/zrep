@@ -29,15 +29,30 @@ ZREPTAG=${ZREPTAG:-zrep}
 
 #ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
 
+# If you'd like a little extra debug output define this env var to something
+#DEBUG=1
+
 # The fastest alternative transport, IF you have multicore/thread CPUs,
 # would seem to be bbcp. If you have both, then you probably want to 
 # define something like this in your environment:
 #BBCP="bbcp -s 8"
 
 
-# If you have mbuffer installed, and wish to use it to speed up transfers,
-# define it in your environment. Sample definition:
-#MBUFFER="mbuffer -q -m 1G -s 128k"
+# You can apply filters to tweak throughput in various ways
+# Sometimes it helps receive performance to use mbuffer
+# Other times, you may have highly compressible data, and custom
+# compression routines such as lzop or lz4 may show significant
+# gains over ssh builtin compression
+#
+# lz4 example:
+# ZREP_OUTFILTER="lz4 -c"
+# ZREP_INFILTER="lz4 -d"
+#
+# mbuffer example:
+# ZREP_OUTFILTER="mbuffer -q -m 1G -s 128k"
+# ZREP_INFILTER="mbuffer -q -m 1G -s 128k"
+
+
 
 # If you want to recursively create/send snapshots, set this to -R
 #  (or use the -R option to BOTH zrep init and zrep sync
@@ -70,6 +85,8 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # Everyting else below here, should not be touched. 
 # First we have autodetect routines,
 # and then internal utilities such as locking functions.
+
+
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
 else
@@ -81,7 +98,23 @@ if [[ "$ZREP_R" == "-R" ]] ; then
 	Z_SNAP_R="-r"
 fi
 
-# used to have polymorphic assign of ZRE_INC_FLAG here, but had
+if [[ "$MBUFFER" != "" ]] ; then
+	print WARNING: MBUFER variable deprecated in zrep >/dev/fd/2
+	print WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead >/dev/fd/2
+	ZREP_OUTFILTER="$ZREP_OUTFILTER $MBUFFER"
+	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
+fi
+
+# sneaky vars to avoid having to use if clauses in the core code
+if [[ "$ZREP_OUTFILTER" != "" ]] ; then
+	Z_F_OUT="| $ZREP_OUTFILTER"
+fi
+if [[ "$ZREP_INFILTER" != "" ]] ; then
+	Z_F_IN="$ZREP_INFILTER |"
+fi
+
+
+# used to have polymorphic assign of ZREP_INC_FLAG here, but had
 # to move it to AFTER checking if -t option used
 
 
@@ -844,17 +877,12 @@ zrep_init(){
 			MOUNTFILTER="-x mountpoint"
 		fi
 
-		if [[ "$MBUFFER" != "" ]] ; then
-		zfs send ${ZREP_R} -p $snap | $MBUFFER |
-			zrep_ssh $desthost "$MBUFFER |
-				zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
-		elif [[ "$BBCP" != "" ]] ; then
+		if [[ "$BBCP" != "" ]] ; then
 		$BBCP -N io "zfs send ${ZREP_R} -p $snap" \
 		    "$desthost:zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		else
-		zfs send ${ZREP_R} -p $snap |
-			zrep_ssh $desthost zfs recv $MOUNTFILTER \
-			   $READONLYPROP -F $destfs
+		zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
+			zrep_ssh $desthost "${Z_F_IN} zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		fi
 	else
 		## arg.. Patch your systems!!
@@ -1166,17 +1194,13 @@ _sync(){
 
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
-	if [[ "$MBUFFER" != "" ]] ; then
-		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap |
-		   $MBUFFER |
-		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
-	elif [[ "$BBCP" != "" ]] ; then
+	if [[ "$BBCP" != "" ]] ; then
 	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $destfs"
 	else
-		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap | 
-		   zrep_ssh $desthost zfs recv $destfs
+		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
 	fi
 
 	if [[ $? -ne 0 ]] ; then
@@ -1409,15 +1433,12 @@ zrep_refresh(){
 
 	_debugprint refresh step 2: Pulling $newsnap
 
-	if [[ "$MBUFFER" != "" ]] ; then
-		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
-		  $MBUFFER | zfs recv $destfs
-	elif [[ "$BBCP" != "" ]] ; then
+	if [[ "$BBCP" != "" ]] ; then
 		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
 		  "zfs recv $destfs"
 	else
-		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
-		  zfs recv $destfs
+		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
+		  ${Z_F_IN} zfs recv $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
