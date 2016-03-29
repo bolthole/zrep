@@ -337,17 +337,12 @@ zrep_init(){
 			MOUNTFILTER="-x mountpoint"
 		fi
 
-		if [[ "$MBUFFER" != "" ]] ; then
-		zfs send ${ZREP_R} -p $snap | $MBUFFER |
-			zrep_ssh $desthost "$MBUFFER |
-				zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
-		elif [[ "$BBCP" != "" ]] ; then
+		if [[ "$BBCP" != "" ]] ; then
 		$BBCP -N io "zfs send ${ZREP_R} -p $snap" \
 		    "$desthost:zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		else
-		zfs send ${ZREP_R} -p $snap |
-			zrep_ssh $desthost zfs recv $MOUNTFILTER \
-			   $READONLYPROP -F $destfs
+		zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
+			zrep_ssh $desthost "${Z_F_IN} zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		fi
 	else
 		## arg.. Patch your systems!!

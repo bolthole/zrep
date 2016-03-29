@@ -31,9 +31,22 @@ ZREPTAG=${ZREPTAG:-zrep}
 # define something like this in your environment:
 #BBCP="bbcp -s 8"
 
-# If you have mbuffer installed, and wish to use it to speed up transfers,
-# define it in your environment. Sample definition:
-#MBUFFER="mbuffer -q -m 1G -s 128k"
+
+# You can apply filters to tweak throughput in various ways
+# Sometimes it helps receive performance to use mbuffer
+# Other times, you may have highly compressible data, and custom
+# compression routines such as lzop or lz4 may show significant
+# gains over ssh builtin compression
+#
+# lz4 example:
+# ZREP_OUTFILTER="lz4 -c"
+# ZREP_INFILTER="lz4 -d"
+#
+# mbuffer example:
+# ZREP_OUTFILTER="mbuffer -q -m 1G -s 128k"
+# ZREP_INFILTER="mbuffer -q -m 1G -s 128k"
+
+
 
 # If you want to recursively create/send snapshots, set this to -R
 #  (or use the -R option to BOTH zrep init and zrep sync
@@ -66,6 +79,8 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # Everyting else below here, should not be touched. 
 # First we have autodetect routines,
 # and then internal utilities such as locking functions.
+
+
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
 else
@@ -77,7 +92,23 @@ if [[ "$ZREP_R" == "-R" ]] ; then
 	Z_SNAP_R="-r"
 fi
 
-# used to have polymorphic assign of ZRE_INC_FLAG here, but had
+if [[ "$MBUFFER" != "" ]] ; then
+	print WARNING: MBUFER variable deprecated in zrep >/dev/fd/2
+	print WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead >/dev/fd/2
+	ZREP_OUTFILTER="$ZREP_OUTFILTER $MBUFFER"
+	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
+fi
+
+# sneaky vars to avoid having to use if clauses in the core code
+if [[ "$ZREP_OUTFILTER" != "" ]] ; then
+	Z_F_OUT="| $ZREP_OUTFILTER"
+fi
+if [[ "$ZREP_INFILTER" != "" ]] ; then
+	Z_F_IN="$ZREP_INFILTER |"
+fi
+
+
+# used to have polymorphic assign of ZREP_INC_FLAG here, but had
 # to move it to AFTER checking if -t option used
 
 

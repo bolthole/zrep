@@ -227,17 +227,13 @@ _sync(){
 
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
-	if [[ "$MBUFFER" != "" ]] ; then
-		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap |
-		   $MBUFFER |
-		   zrep_ssh $desthost "$MBUFFER|zfs recv $destfs"
-	elif [[ "$BBCP" != "" ]] ; then
+	if [[ "$BBCP" != "" ]] ; then
 	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $destfs"
 	else
-		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap | 
-		   zrep_ssh $desthost zfs recv $destfs
+		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs
 	fi
 
 	if [[ $? -ne 0 ]] ; then
@@ -470,15 +466,12 @@ zrep_refresh(){
 
 	_debugprint refresh step 2: Pulling $newsnap
 
-	if [[ "$MBUFFER" != "" ]] ; then
-		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap |$MBUFFER"|
-		  $MBUFFER | zfs recv $destfs
-	elif [[ "$BBCP" != "" ]] ; then
+	if [[ "$BBCP" != "" ]] ; then
 		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
 		  "zfs recv $destfs"
 	else
-		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap |
-		  zfs recv $destfs
+		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
+		  ${Z_F_IN} zfs recv $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
