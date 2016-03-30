@@ -340,7 +340,7 @@ zrep_ssh(){
 	typeset ssh_cmd
 	case "$1" in
 		localhost|$Z_LOCAL_HOST)
-			ssh_cmd=""
+			ssh_cmd="eval"
 			;;
 		*)
 			ssh_cmd="$SSH $1"
