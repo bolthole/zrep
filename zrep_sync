@@ -236,6 +236,9 @@ _sync(){
 		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
 	fi
 
+	# I rename this to _unsent rather than just delete, in case people are using zrep
+	# for the DUAL use, of replication,
+	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
 	if [[ $? -ne 0 ]] ; then
 		zfs rename ${newsnap} ${newsnap}_unsent
 		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
