@@ -1,10 +1,13 @@
 If you came here looking for the "source" of zrep, only because you want to 
-"compile" it to use it... dont bother! just great latest official release from
+"compile" it to use it... dont bother! Just grab the latest official release 
+from
 
 http://www.bolthole.com/solaris/zrep
 
 It's a script; you dont actually need to "compile" it, to use it.
+
 This directory is just for people who are curious how I develop and maintain it
+(or to sometimes grab a beta version)
 
 - Philip Brown
 
