@@ -105,7 +105,9 @@ if [[ "$MBUFFER" != "" ]] ; then
 	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
 fi
 
-# sneaky vars to avoid having to use if clauses in the core code
+# Sneaky vars to avoid having to use if clauses in the core code
+# HOWEVER! Note that ksh doesnt seem to evaluate pipe symbols when normaly
+# expanded in a command line. So, have to use 'eval' to get them to register
 if [[ "$ZREP_OUTFILTER" != "" ]] ; then
 	Z_F_OUT="| $ZREP_OUTFILTER"
 fi
@@ -721,7 +723,10 @@ zrep_clear(){
 	print " (for TAG=${ZREPTAG})"
 	print Continuing in 10 seconds
 	sleep 10
+	_clear $1
+}
 
+_clear(){
 	print Destroying any zrep-related snapshots from $1
 	snaplist=`list_autosnaps $1`
 	for snap in $snaplist ; do
@@ -735,9 +740,10 @@ zrep_clear(){
 	done
 }
 
-## This is a special internal routine, used only by zrep_init.
+## This is a special internal routine, used only by zrep_init, 
+## to reset target fs to pre-zrep state.
 ## call with "srcfs  errmsg1 errmsg2..."
-## It will REMOVE REMOTEFS if set in PROPERTIES!!
+## It will also REMOVE REMOTEFS if set in PROPERTIES!!
 clearquit(){
 	remhost=`zfs get -H -o value ${ZREPTAG}:dest-host $1`
 	remfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $1`
@@ -745,7 +751,7 @@ clearquit(){
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
 
-	zrep_clear $1
+	_clear $1
 	shift
 	zrep_errquit "$@"
 }
@@ -881,7 +887,7 @@ zrep_init(){
 		$BBCP -N io "zfs send ${ZREP_R} -p $snap" \
 		    "$desthost:zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		else
-		zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
+		eval zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
 			zrep_ssh $desthost "${Z_F_IN} zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		fi
 	else
@@ -1199,7 +1205,7 @@ _sync(){
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $destfs"
 	else
-		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+		eval zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
 		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
 	fi
 
@@ -1441,7 +1447,7 @@ zrep_refresh(){
 		  "zfs recv $destfs"
 	else
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
-		  ${Z_F_IN} zfs recv $destfs
+		  eval ${Z_F_IN} zfs recv $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost

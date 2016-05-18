@@ -99,7 +99,9 @@ if [[ "$MBUFFER" != "" ]] ; then
 	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
 fi
 
-# sneaky vars to avoid having to use if clauses in the core code
+# Sneaky vars to avoid having to use if clauses in the core code
+# HOWEVER! Note that ksh doesnt seem to evaluate pipe symbols when normaly
+# expanded in a command line. So, have to use 'eval' to get them to register
 if [[ "$ZREP_OUTFILTER" != "" ]] ; then
 	Z_F_OUT="| $ZREP_OUTFILTER"
 fi

@@ -232,7 +232,7 @@ _sync(){
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $destfs"
 	else
-		zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+		eval zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
 		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
 	fi
 
@@ -474,7 +474,7 @@ zrep_refresh(){
 		  "zfs recv $destfs"
 	else
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
-		  ${Z_F_IN} zfs recv $destfs
+		  eval ${Z_F_IN} zfs recv $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
