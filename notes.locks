@@ -1,5 +1,16 @@
-Notes on how "normal" thing does locks n stuff.
+Notes on how zrep uses its own internal locks.
+ (observationally. not a design document)
 
+Locks are done on the sending side.
+There is a global lock, and an fs-specific lock.
+The global is done via a lockfile.
+
+fs-specific is done by property. It is also done
+in a tag-local way. So in theory, multiple snapshots and sends could be done.
+          zfs set ${ZREPTAG}:lock-pid=$$ $1
+
+
+Function uses of locks
 
 zrep sync:
 
@@ -12,11 +23,13 @@ zrep sync:
 
 
 _snapandsync
+	*(caller has lock)
 	*(create snapshot...)
 
 	_sync
 
 _sync
+	*(caller has lock)
 	* find last sent
 	* find newest snap
 	* put together the zfs incremental command
@@ -25,4 +38,26 @@ _sync
 	   - If this fails, set zrep:lastsent and lastsenttime, on *filesystem*
 	      of remote side, and then local
 
+
+zrep_refresh
+	lock_fs
+	snap remote side
+	pull a send
+	POTENTIAL ERROR HERE, since pull, may rewrite property?!?!
+	redundant(?) unlock_fs.
 	
+zrep_failover
+	lock_fs
+	do all operations
+	unlock_fs
+
+zrep_takeover
+	lock_fs
+	do all operations
+	unlock_fs
+
+
+zrep_snaponly
+	lock_fs
+	make snapshot
+	unlock_fs
