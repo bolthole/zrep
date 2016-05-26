@@ -839,7 +839,7 @@ zrep_init(){
 	if [[ "$check" == "volume" ]] ; then
 		vol=1
 		if ((! Z_HAS_O )) ; then
-			print "Sorry, your zfs is too old for zrep to handle volume initialization"
+			print "Sorry, your zfs is too old for zrep to safely handle volume initialization"
 			zrep_errquit "Please initialize volume target by hand, if you won't upgrade"
 		fi
 	fi
@@ -855,7 +855,7 @@ zrep_init(){
 		READONLYPROP="-o readonly=on"
 	else
 		READONLYPROP=""
-		print Ancient local version of ZFS detected.
+		print Warning: zfs lacking -o argument
 		print Creating destination filesystem as separate step
 		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $destfs || zrep_errquit "Cannot create $desthost:$destfs"
 	fi
@@ -893,9 +893,16 @@ zrep_init(){
 	else
 		## arg.. Patch your systems!!
 		# Doesn't support "recv -x mountpoint", so cant use -p in send
+		#  (So we cant avoid it potentially WRONGLY setting mountpoint)
 		# This means we have to manually set props lower down as well.
-		zfs send ${ZREP_R} $snap |
-		  zrep_ssh $desthost zfs recv $READONLYPROP -F $destfs
+		#
+		if [[ "$BBCP" != "" ]] ; then
+		$BBCP -N io "zfs send ${ZREP_R} $snap" \
+		    "$desthost:zfs recv $READONLYPROP -F $destfs"
+		else
+		eval zfs send ${ZREP_R} $snap ${Z_F_OUT}|
+		  zrep_ssh $desthost "${Z_F_IN} zfs recv $READONLYPROP -F $destfs"
+		fi
 	fi
 	if [[ $? -ne 0 ]] ; then
 		clearquit $srcfs "Error transferring $snap to $desthost:$destfs. Resetting"
