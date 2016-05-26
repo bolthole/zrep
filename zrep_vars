@@ -284,7 +284,7 @@ zrep_lock_fs(){
 			zrep_release_global_lock
 			return 1
 		fi
-		print DEBUG: overiding stale lock on $1 from pid $check >/dev/fd/2
+		_debugprint overiding stale lock on $1 from pid $check >/dev/fd/2
 	fi
 	
 	zfs set ${ZREPTAG}:lock-pid=$$ $1
