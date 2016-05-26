@@ -118,16 +118,19 @@ fi
 # So, just tie this to MU6 related check,like HAS_SNAPPROPS
 PROPTYPES="local,received" 
 
+
+
 # dump the usage message, and check for capabilities
 # make sure we dont spew for non-root, so that "zrep status" works
 case `id` in
 	*\(root\))
-	zrep_checkfile=/var/run/zrep.check.$$
+	ZREP_RUNDIR=${ZREP_RUNDIR:-/var/run}
 	;;
 	*)
-	zrep_checkfile=/tmp/zrep.check.$$
+	ZREP_RUNDIR=${ZREP_RUNDIR:-/tmp}
 	;;
 esac
+zrep_checkfile=$ZREP_RUNDIR/zrep.check.$$
 
 
 zfs >$zrep_checkfile 2>&1 
@@ -181,7 +184,7 @@ rm $zrep_checkfile
 
 Z_LOCK_RETRY=${Z_LOCK_RETRY:-10}  # default 10 second  retry, 1 per sec
 Z_SAVE_COUNT=${Z_SAVE_COUNT:-5}
-Z_GLOBAL_LOCKFILE=/var/run/zrep.lock
+Z_GLOBAL_LOCKFILE=$ZREP_RUNDIR/zrep.lock
 
 if [[ "$Z_GLOBAL_PID" == "" ]] ; then
 	export Z_GLOBAL_PID=$$
