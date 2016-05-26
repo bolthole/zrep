@@ -626,7 +626,7 @@ _expire(){
 		zrep_errquit "Remote side also marked as master ** $remotehost:$remotefs"
 	fi
 
-	zrep_ssh $remotehost $ZREP_PATH expire $remotefs ||print REMOTE expire failed
+	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||print REMOTE expire failed
 }
 
 
