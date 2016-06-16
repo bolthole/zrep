@@ -108,3 +108,7 @@ version 1.5.4
 
 version 1.5.5
 	bugfix: return setfsconfigs $@
+
+version 1.6
+	added BBCP support
+	added ZREP_INFILTER and ZREP_OUTFILTER to support things like inline compression
