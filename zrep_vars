@@ -204,7 +204,12 @@ Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
 # Note that we check for "us, OR our global parent", if different
 #
 zrep_has_global_lock(){
-	lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
+	if [[ -f /usr/bin/lockf ]] ; then
+		lockpid=`cat $Z_GLOBAL_LOCKFILE 2>/dev/null`
+	else
+		lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
+	fi
+
 	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
 	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
 		if [[ "$lockpid" != "$$" ]] ; then
@@ -221,6 +226,14 @@ zrep_has_global_lock(){
 #It is binary, not recursive ownership.
 zrep_get_global_lock(){
 	typeset retry_count=$Z_LOCK_RETRY
+
+	if [[ -f /usr/bin/lockf ]] ; then
+		lockf -ks -t $retry_count $Z_GLOBAL_LOCKFILE /bin/true
+		if [[ $? -ne 0 ]] ; then return 1; fi
+		echo $Z_GLOBAL_PID >> $Z_GLOBAL_LOCKFILE
+		return 0
+	fi
+
 
 	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 
