@@ -76,6 +76,7 @@ ZREPTAG=${ZREPTAG:-zrep}
 # always be there. It's also simple, straightforward, and non-extended.
 # On other OSs this path will not exist, so it will just fall back to
 # use the system default perl. Unless user wants to specify perl path.
+# If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 
@@ -209,7 +210,12 @@ Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
 # Note that we check for "us, OR our global parent", if different
 #
 zrep_has_global_lock(){
-	lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
+	if [[ -f /usr/bin/lockf ]] ; then
+		lockpid=`cat $Z_GLOBAL_LOCKFILE 2>/dev/null`
+	else
+		lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
+	fi
+
 	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
 	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
 		if [[ "$lockpid" != "$$" ]] ; then
@@ -226,6 +232,14 @@ zrep_has_global_lock(){
 #It is binary, not recursive ownership.
 zrep_get_global_lock(){
 	typeset retry_count=$Z_LOCK_RETRY
+
+	if [[ -f /usr/bin/lockf ]] ; then
+		lockf -ks -t $retry_count $Z_GLOBAL_LOCKFILE /bin/true
+		if [[ $? -ne 0 ]] ; then return 1; fi
+		echo $Z_GLOBAL_PID >> $Z_GLOBAL_LOCKFILE
+		return 0
+	fi
+
 
 	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 
@@ -357,8 +371,17 @@ zrep_ssh(){
 
 zrep_gettimeinseconds(){
 	# unfortunately, solaris date doesnt do '%s', so need to use perl
+	typeset seconds
 	typeset PATH=$PERL_BIN:$PATH
-	perl -e 'print int(time);'
+	seconds=`perl -e 'print int(time);' 2>/dev/null`
+	if [[ -z "seconds" ]] ; then
+		# attempt fallback if no perl present (eg: stock freebsd)
+		seconds=`date +%s`
+	fi
+	if [[ -z "seconds" ]] ; then
+		zrep_errquit zrep_gettimeinseconds doesnt know what to do
+	fi
+	print $seconds
 }
 
 _debugprint(){
@@ -914,7 +937,7 @@ zrep_init(){
 	# Successful initial sync! Woo! okay record that, etc.
 	# ... after stupid old-zfs-compat junk, that is
 	if (( ! Z_HAS_X )) ; then
-		print Debug: Because you have old zfs support, setting remote properties by hand
+		_debugprint Because you have old zfs support, setting remote properties by hand
 		zrep_ssh $desthost zfs set readonly=on $destfs	||
 			clearquit Could not set readonly for $desthost:$destfs
 
