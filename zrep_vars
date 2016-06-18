@@ -70,6 +70,7 @@ ZREPTAG=${ZREPTAG:-zrep}
 # always be there. It's also simple, straightforward, and non-extended.
 # On other OSs this path will not exist, so it will just fall back to
 # use the system default perl. Unless user wants to specify perl path.
+# If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 
@@ -351,8 +352,17 @@ zrep_ssh(){
 
 zrep_gettimeinseconds(){
 	# unfortunately, solaris date doesnt do '%s', so need to use perl
+	typeset seconds
 	typeset PATH=$PERL_BIN:$PATH
-	perl -e 'print int(time);'
+	seconds=`perl -e 'print int(time);' 2>/dev/null`
+	if [[ -z "seconds" ]] ; then
+		# attempt fallback if no perl present (eg: stock freebsd)
+		seconds=`date +%s`
+	fi
+	if [[ -z "seconds" ]] ; then
+		zrep_errquit zrep_gettimeinseconds doesnt know what to do
+	fi
+	print $seconds
 }
 
 _debugprint(){
