@@ -369,7 +369,7 @@ zrep_init(){
 	# Successful initial sync! Woo! okay record that, etc.
 	# ... after stupid old-zfs-compat junk, that is
 	if (( ! Z_HAS_X )) ; then
-		print Debug: Because you have old zfs support, setting remote properties by hand
+		_debugprint Because you have old zfs support, setting remote properties by hand
 		zrep_ssh $desthost zfs set readonly=on $destfs	||
 			clearquit Could not set readonly for $desthost:$destfs
 
