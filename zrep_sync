@@ -24,7 +24,9 @@ _gensentprop(){
 # Needs to follow whatever is done in _sync(), after the zfs send
 #
 zrep_sentsync(){
-	typeset srcfs="$1"
+	typeset srcsnap="$1"
+	typeset srcfs=${srcsnap%@*}
+	typeset snapname=${srcfs#*@}
 
 	if (( ! Z_HAS_SNAPPROPS )) ; then
 		zrep_errquit This sentsync operation only supported with modern ZFS implementations
@@ -48,16 +50,15 @@ zrep_sentsync(){
 		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
 	fi
 
-	typeset desthost destfs snapname
+	typeset desthost destfs
 	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
 	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
-	snapname=${srcfs#*@}
 
 	typeset	senttimeprop="`_gensentprop`"
 
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 
-	zfs set $senttimeprop  ${srcfs}
+	zfs set $senttimeprop  ${srcsnap}
 	# This will be redundant for recovery, but crucial for when
 	# user is trying to convert existing snapshot to
 	# zrep snapshot.
