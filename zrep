@@ -233,6 +233,11 @@ zrep_has_global_lock(){
 zrep_get_global_lock(){
 	typeset retry_count=$Z_LOCK_RETRY
 
+	# Even though we use lockf if present.. check for stale locks still requires
+	# /proc. So quit if not available
+
+	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
+
 	if [[ -f /usr/bin/lockf ]] ; then
 		lockf -ks -t $retry_count $Z_GLOBAL_LOCKFILE /bin/true
 		if [[ $? -ne 0 ]] ; then return 1; fi
@@ -291,7 +296,7 @@ zrep_lock_fs(){
 	# global lock is slow. so do quickcheck first.
 	typeset check=`zrep_fs_lock_pid $1` newcheck
 	if [[ "$check" != "-" ]] ; then
-		# validate fs lock before giving up
+		# See if owning process still exists.
 		ls -d /proc/$check >/dev/null 2>&1 && return 1
 	fi
 
@@ -375,7 +380,7 @@ zrep_gettimeinseconds(){
 	typeset PATH=$PERL_BIN:$PATH
 	seconds=`perl -e 'print int(time);' 2>/dev/null`
 	if [[ -z "seconds" ]] ; then
-		# attempt fallback if no perl present (eg: stock freebsd)
+		# attempt fallback if no perl present (eg: stock FreeBSD)
 		seconds=`date +%s`
 	fi
 	if [[ -z "seconds" ]] ; then
@@ -835,7 +840,7 @@ setfsconfigs(){
 	esac
 
 	zfs set ${ZREPTAG}:src-fs=$srcfs		$fsname
-	zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST	$fsname
+	zfs set ${ZREPTAG}:src-host=$srchost		$fsname
 	zfs set ${ZREPTAG}:dest-fs=$destfs		$fsname
 	zfs set ${ZREPTAG}:dest-host=$desthost		$fsname
 	zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$fsname
@@ -1030,7 +1035,9 @@ _gensentprop(){
 # Needs to follow whatever is done in _sync(), after the zfs send
 #
 zrep_sentsync(){
-	typeset srcfs="$1"
+	typeset srcsnap="$1"
+	typeset srcfs=${srcsnap%@*}
+	typeset snapname=${srcfs#*@}
 
 	if (( ! Z_HAS_SNAPPROPS )) ; then
 		zrep_errquit This sentsync operation only supported with modern ZFS implementations
@@ -1054,16 +1061,15 @@ zrep_sentsync(){
 		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
 	fi
 
-	typeset desthost destfs snapname
+	typeset desthost destfs
 	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
 	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
-	snapname=${srcfs#*@}
 
 	typeset	senttimeprop="`_gensentprop`"
 
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 
-	zfs set $senttimeprop  ${srcfs}
+	zfs set $senttimeprop  ${srcsnap}
 	# This will be redundant for recovery, but crucial for when
 	# user is trying to convert existing snapshot to
 	# zrep snapshot.
