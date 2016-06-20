@@ -233,7 +233,7 @@ zrep_get_global_lock(){
 	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
 
 	if [[ -f /usr/bin/lockf ]] ; then
-		lockf -ks -t $retry_count $Z_GLOBAL_LOCKFILE /bin/true
+		lockf -ks -t $retry_count $Z_GLOBAL_LOCKFILE true
 		if [[ $? -ne 0 ]] ; then return 1; fi
 		echo $Z_GLOBAL_PID >> $Z_GLOBAL_LOCKFILE
 		return 0
