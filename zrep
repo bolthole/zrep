@@ -464,6 +464,11 @@ zrep_status(){
 }
 
 
+_master_fs_names(){
+	zfs get -H -o name -s local ${ZREPTAG}:master "$@"
+}
+
+
 # convenience function to list only local filesystems for which we are
 # zrep master for.
 # In contrast, zrep_list, lists ALL zrep registered filesystem, at the moment.
@@ -476,7 +481,7 @@ zrep_status(){
 # Durn. Individual validation required.
 zrep_list_master(){
 	typeset srchost
-	for fs in `zfs get -H -o name -s local ${ZREPTAG}:master "$@"` ; do
+	for fs in `_master_fs_names "$@"` ; do
 		srchost=`zfs get -H -o value ${ZREPTAG}:src-host $fs`
 		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
 			print $fs
@@ -505,6 +510,8 @@ list_verbose(){
 # zrep_list [-v]
 # zrep_list [-L]
 # zrep_list [-v] fs1 fs2
+#(also zrep_list -s which passes to zrep_list_snaps)
+#
 # list all zrep-initialized filesystems (NOT snapshots..)
 # If no specific fs listed, will show master, AND received filesystems,
 #    unless -L given (in which case, only local masters will be shown)
@@ -532,10 +539,15 @@ zrep_list(){
 		printcmd="zrep_list_master"
 		shift
 		;;
+		-s)
+		shift
+		zrep_list_snaps "$@"
+		return
+		;;
 	esac
 
 
-
+	# If specific fs(s) named, iterate over them and quit
 	if [[ "$1" != "" ]] ; then
 		while [[ "$1" != "" ]] ; do
 			if zfs list -t filesystem,volume $1 >/dev/null 2>&1 ; then
@@ -568,6 +580,28 @@ zrep_list(){
 		print ""
 	done
 	
+	
+}
+
+# Similar to zrep_list, but lists SNAPSHOTS instead of filesystems
+# The purpose is to allow a sysadmin to see easily when snapshots have
+# been created.
+# Either give a list of specific filesystems, or no args, which
+# will attempt to list all zrep-related snapshots
+# It will list only zrep MASTER filesystem snapshots, in that case.
+zrep_list_snaps(){
+	if [[ "$1" == "" ]] ; then
+		set -- `_master_fs_names`
+		if [[ "$1" == "" ]] ; then
+			print "No zrep master filesystems found" >/dev/fd/2
+			return 0
+		fi
+	fi
+
+	while [[ "$1" != "" ]] ; do
+	      zfs list -r -t snapshot -o name,creation $1
+	      shift 
+	done
 	
 }
 
@@ -1868,7 +1902,8 @@ usage(){
 	print 'zrep (sync|-S) ZFS/fs@snapshot    -- temporary retroactive sync'
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
 	print 'zrep refresh ZFS/fs               -- pull version of sync'
-	print 'zrep (list|-l) [-Lv]'
+	print 'zrep (list|-l) [-Lv]  [fs/names]'
+	print 'zrep (list|-l) -s     [fs/names]' 
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
