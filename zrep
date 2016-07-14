@@ -538,7 +538,7 @@ zrep_list(){
 
 	if [[ "$1" != "" ]] ; then
 		while [[ "$1" != "" ]] ; do
-			if zfs list -t filesystem $1 >/dev/null 2>&1 ; then
+			if zfs list -t filesystem,volume $1 >/dev/null 2>&1 ; then
 				$printcmd $1
 			else
 				zrep_errquit "Expecting filesystem, but got $1"
