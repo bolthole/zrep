@@ -17,9 +17,9 @@ _gensentprop(){
 # I put lots of sanity checking in here, that doesnt make sense to keep
 # with a more general case internal routine
 # Certain people say that for some odd reason on their systems, the 
-# zfs send completes, but zrep gets killed before full completion.
+# zfs send completes, but zrep gets killed before zrep updates properties.
 # To help people save the time on resyncing hundreds of TB, 
-# give them a way to finish off the zfs stuffs.
+# give them a way to update the sent property.
 # This only works with newstyle ZFS that allows property setting on snapshots
 # Needs to follow whatever is done in _sync(), after the zfs send
 #
