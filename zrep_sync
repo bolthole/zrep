@@ -26,7 +26,7 @@ _gensentprop(){
 zrep_sentsync(){
 	typeset srcsnap="$1"
 	typeset srcfs=${srcsnap%@*}
-	typeset snapname=${srcfs#*@}
+	typeset snapname=${srcsnap#*@}
 
 	if (( ! Z_HAS_SNAPPROPS )) ; then
 		zrep_errquit This sentsync operation only supported with modern ZFS implementations
