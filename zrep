@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.6.1
+ZREP_VERSION=1.6.2
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -1062,16 +1062,16 @@ _gensentprop(){
 # I put lots of sanity checking in here, that doesnt make sense to keep
 # with a more general case internal routine
 # Certain people say that for some odd reason on their systems, the 
-# zfs send completes, but zrep gets killed before full completion.
+# zfs send completes, but zrep gets killed before zrep updates properties.
 # To help people save the time on resyncing hundreds of TB, 
-# give them a way to finish off the zfs stuffs.
+# give them a way to update the sent property.
 # This only works with newstyle ZFS that allows property setting on snapshots
 # Needs to follow whatever is done in _sync(), after the zfs send
 #
 zrep_sentsync(){
 	typeset srcsnap="$1"
 	typeset srcfs=${srcsnap%@*}
-	typeset snapname=${srcfs#*@}
+	typeset snapname=${srcsnap#*@}
 
 	if (( ! Z_HAS_SNAPPROPS )) ; then
 		zrep_errquit This sentsync operation only supported with modern ZFS implementations
