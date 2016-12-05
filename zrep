@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.6.2
+ZREP_VERSION=1.6.3
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -1909,6 +1909,7 @@ usage(){
 	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	print 'zrep failover [-L] ZFS/fs'
 	print 'zrep takeover [-L] ZFS/fs'
+	print 'zrep version'
 	print 'zrep clear ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
 	print
 	print '   -q option says to Quietly ignore locked filesystems that have synced'
@@ -1961,6 +1962,10 @@ case "$1" in
 	"")
 		usage
 		;;
+	changeconfig|-C)
+		shift
+		zrep_changeconfig "$@"
+		;;
 	clear)
 		shift
 		zrep_clear $1
@@ -1972,10 +1977,6 @@ case "$1" in
 	init|-i)
 		shift
 		zrep_init "$@"
-		;;
-	changeconfig|-C)
-		shift
-		zrep_changeconfig "$@"
 		;;
 	sentsync)
 		shift
@@ -2012,6 +2013,12 @@ case "$1" in
 	takeover)
 		shift
 		zrep_takeover "$@"
+		;;
+	version)
+		print "zrep $ZREP_VERSION"
+		print "http://www.bolthole.com/solaris/zrep"
+		print "http://www.github.com/bolthole/zrep"
+		exit
 		;;
 		
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
