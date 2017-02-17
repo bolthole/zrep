@@ -241,8 +241,9 @@ _sync(){
 	# for the DUAL use, of replication,
 	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
 	if [[ $? -ne 0 ]] ; then
-		zfs rename ${newsnap} ${newsnap}_unsent
+		zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
 		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
+		fi
 	fi
 
 
