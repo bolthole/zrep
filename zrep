@@ -379,11 +379,11 @@ zrep_gettimeinseconds(){
 	typeset seconds
 	typeset PATH=$PERL_BIN:$PATH
 	seconds=`perl -e 'print int(time);' 2>/dev/null`
-	if [[ -z "seconds" ]] ; then
+	if [[ -z "$seconds" ]] ; then
 		# attempt fallback if no perl present (eg: stock FreeBSD)
 		seconds=`date +%s`
 	fi
-	if [[ -z "seconds" ]] ; then
+	if [[ -z "$seconds" ]] ; then
 		zrep_errquit zrep_gettimeinseconds doesnt know what to do
 	fi
 	print $seconds
