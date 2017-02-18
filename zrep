@@ -1288,7 +1288,6 @@ _sync(){
 	if [[ $? -ne 0 ]] ; then
 		zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
 		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
-		fi
 	fi
 
 
