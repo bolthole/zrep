@@ -204,11 +204,7 @@ Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
 # Note that we check for "us, OR our global parent", if different
 #
 zrep_has_global_lock(){
-	if [[ -f /usr/bin/lockf ]] ; then
-		lockpid=`cat $Z_GLOBAL_LOCKFILE 2>/dev/null`
-	else
-		lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
-	fi
+	lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
 
 	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
 	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
@@ -227,18 +223,8 @@ zrep_has_global_lock(){
 zrep_get_global_lock(){
 	typeset retry_count=$Z_LOCK_RETRY
 
-	# Even though we use lockf if present.. check for stale locks still requires
-	# /proc. So quit if not available
 
 	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
-
-	if [[ -f /usr/bin/lockf ]] ; then
-		lockf -ks -t $retry_count $Z_GLOBAL_LOCKFILE true
-		if [[ $? -ne 0 ]] ; then return 1; fi
-		echo $Z_GLOBAL_PID >> $Z_GLOBAL_LOCKFILE
-		return 0
-	fi
-
 
 	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 
