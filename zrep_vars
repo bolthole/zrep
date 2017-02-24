@@ -124,7 +124,7 @@ PROPTYPES="local,received"
 # dump the usage message, and check for capabilities
 # make sure we dont spew for non-root, so that "zrep status" works
 case `id` in
-	*\(root\))
+	*'(root)'*)
 	ZREP_RUNDIR=${ZREP_RUNDIR:-/var/run}
 	;;
 	*)
