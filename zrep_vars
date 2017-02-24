@@ -209,6 +209,7 @@ zrep_has_global_lock(){
 	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
 	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
 		if [[ "$lockpid" != "$$" ]] ; then
+			_debugprint 'has_global_lock? no. lock held by PID' $lockpid
 			return 1
 		fi
 	fi
