@@ -204,13 +204,16 @@ Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
 #Z_SETHOLD="echo skipping zfs hold on"
 
 
-
+# return PID of proc holding global lock, or nothing
+zrep_global_lock_pid(){
+	ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'
+}
 
 # return 0 if "we" are holding lock, 1 otherwise
 # Note that we check for "us, OR our global parent", if different
 #
 zrep_has_global_lock(){
-	lockpid=`ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'`
+	lockpid=`zrep_global_lock_pid`
 
 	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
 	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
@@ -229,6 +232,7 @@ zrep_has_global_lock(){
 #It is binary, not recursive ownership.
 zrep_get_global_lock(){
 	typeset retry_count=$Z_LOCK_RETRY
+	typeset lockpid
 
 
 	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
@@ -236,13 +240,26 @@ zrep_get_global_lock(){
 	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 
 	# otherwise, deal with fail
-	# Check for dead old holder first.
-	# CANNOT CLEAN UP OURSELVES: race condition problems.
-	
+	# Careful of race conditions on stale CLEAN UP!
+	# How to resolve problem where
+	# * multiple instances running
+	# * one instance detects stale
+	# * multiple instances decide to remove it
+	# *  ONE removes it and creates new symlink
+	# *  SECOND one was paused between detection and removal.. so removes
+	# * VALID lockfile?!?!
+	# For now, must request manual cleanup
 	while (( retry_count > 0 )); do
 		sleep 1
 		ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 		retry_count=$((retry_count-1))
+		lockpid=`zrep_global_lock_pid`
+		if ! -d /proc/$lockpid ; then
+			echo ERROR: stale global lock file >/dev/fd/2
+			echo ERROR: shut down ALL zrep instances, then manually remove
+			echo   $Z_GLOBAL_LOCKFILE
+		fi
+
 	done
 
 	print Failed to acquire global lock 
