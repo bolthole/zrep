@@ -87,6 +87,12 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # First we have autodetect routines,
 # and then internal utilities such as locking functions.
 
+# Work around a bug in gentoo ksh that breaks "ls -l"
+if getconf PATH_RESOLVE 2> /dev/null ; then
+	LS=/bin/ls
+else
+	LS=ls
+fi
 
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
@@ -206,7 +212,7 @@ Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
 
 # return PID of proc holding global lock, or nothing
 zrep_global_lock_pid(){
-	ls -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'
+	$LS -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'
 }
 
 # return 0 if "we" are holding lock, 1 otherwise
