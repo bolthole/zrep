@@ -1541,7 +1541,9 @@ zrep_refresh(){
 		print WARNING: expected local copy $destfs@newseq does not exist >/dev/fd/2
 	fi
 
+	_debugprint Running local expires on $destfs
 	_expire $destfs
+	_debugprint Running remote expires on $srcfs
 	zrep_ssh $srchost "$ZREP_PATH expire -L $srcfs"
 
 	zrep_unlock_fs $destfs
