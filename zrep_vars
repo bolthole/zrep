@@ -186,6 +186,11 @@ if ((Z_HAS_X)) ; then
 else
 	Z_HAS_O=0
 fi
+if grep 'receive.*-[^- ]*u' $zrep_checkfile >/dev/null ;then
+	Z_HAS_U=1	  # can use recv -u
+else
+	Z_HAS_U=0
+fi
 rm $zrep_checkfile
 
 

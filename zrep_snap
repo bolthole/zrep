@@ -348,6 +348,32 @@ zrep_init(){
 		eval zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
 			zrep_ssh $desthost "${Z_F_IN} zfs recv $MOUNTFILTER $READONLYPROP -F $destfs"
 		fi
+	elif (( $Z_HAS_U )) ; then
+		# Doesn't support "recv -x mountpoint", but supports "recv -u"
+		# so proper mountpoint can be set manually after receive.
+		#
+		if [[ "$BBCP" != "" ]] ; then
+		$BBCP -N io "zfs send ${ZREP_R} -p $snap" \
+		    "$desthost:zfs recv -u $READONLYPROP -F $destfs"
+		else
+		eval zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
+			zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP -F $destfs"
+		fi
+
+		if (( ! vol )) ; then
+			destfs_relative=${destfs##*/}
+			destfs_parent=${destfs%/*}
+			destfs_parent_mountpoint=zrep_ssh $desthost "zfs get -H -o value mountpoint $destfs_parent"
+			proper_mountpoint="$destfs_parent/$destfs_relative"
+
+			zrep_ssh $desthost "zfs set mountpoint=$proper_mountpoint"
+			zrep_ssh $desthost "zfs mount $destfs"
+		fi
+
+		if (( ! Z_HAS_O )) ; then
+			zrep_ssh $desthost zfs set readonly=on $destfs	||
+				clearquit Could not set readonly for $desthost:$destfs
+		fi
 	else
 		## arg.. Patch your systems!!
 		# Doesn't support "recv -x mountpoint", so cant use -p in send
@@ -368,7 +394,7 @@ zrep_init(){
 
 	# Successful initial sync! Woo! okay record that, etc.
 	# ... after stupid old-zfs-compat junk, that is
-	if (( ! Z_HAS_X )) ; then
+	if (( ! Z_HAS_X && ! ZFS_HAS_U )) ; then
 		_debugprint Because you have old zfs support, setting remote properties by hand
 		zrep_ssh $desthost zfs set readonly=on $destfs	||
 			clearquit Could not set readonly for $desthost:$destfs
