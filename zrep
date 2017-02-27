@@ -190,7 +190,11 @@ if ((Z_HAS_X)) ; then
 	# until I find somewhere it isnt...
 	Z_HAS_O=1  # can recv use -o option
 else
-	Z_HAS_O=0
+	if grep 'receive.*-o' $zrep_checkfile >/dev/null ;then
+		Z_HAS_O=1
+	else
+		Z_HAS_O=0
+	fi
 fi
 rm $zrep_checkfile
 
