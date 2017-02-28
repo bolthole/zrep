@@ -145,12 +145,16 @@ zfs >$zrep_checkfile 2>&1
 # Now attempting to make it smarter,
 # at the expense of some startup speed :(
 Z_HAS_X=0	  # can use recv -x
+Z_HAS_RECU=0	  # can use recv -u
+Z_HAS_CREATE_O=0  # can use create -o
 Z_HAS_SNAPPROPS=0
 
 if grep 'help' $zrep_checkfile >/dev/null ;then
    # Presume Solaris 11, which has all features, but
-   # does not allow line-by-line feature detection
+   # does not allow line-by-line feature detection easily
 	Z_HAS_X=1	  # can use recv -x
+	Z_HAS_RECU=1	  # can use recv -u
+	Z_HAS_CREATE_O=1  # can use create -o
 	Z_HAS_SNAPPROPS=1 # can set properties on snapshots
 			  # This also lets me set "last synced" timestamps
 			  # otherwise cant use zrep:sent sanely.
@@ -159,10 +163,14 @@ if grep 'help' $zrep_checkfile >/dev/null ;then
 	DEPTHCAP="-d 1" # limits "list -r"
 
 else
-	if grep 'receive.*-x' $zrep_checkfile >/dev/null ;then
+	if grep 'receive .*-[a-zA-Z]*x' $zrep_checkfile >/dev/null ;then
 		Z_HAS_X=1	  # can use recv -x
-	else
-		Z_HAS_X=0
+	fi
+	if grep 'receive .*-[a-zA-Z]*u' $zrep_checkfile >/dev/null ;then
+		Z_HAS_RECU=1	  # can use recv -u
+	fi
+	if grep 'create .* -o ' $zrep_checkfile >/dev/null ;then
+f		Z_HAS_CREATE_O=1 # can use create -o
 	fi
 	if grep 'set .*snapshot' $zrep_checkfile >/dev/null ;then
 		Z_HAS_SNAPPROPS=1 # can set properties on snapshots
@@ -178,13 +186,6 @@ fi
 
 if ((!Z_HAS_SNAPPROPS)) ; then
 	PROPTYPES="local"
-fi
-if ((Z_HAS_X)) ; then
-   	# Okay this assumption may not be valid everywhere, but
-	# until I find somewhere it isnt...
-	Z_HAS_O=1  # can recv use -o option
-else
-	Z_HAS_O=0
 fi
 rm $zrep_checkfile
 

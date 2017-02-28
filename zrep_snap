@@ -296,7 +296,7 @@ zrep_init(){
 	check="`zfs get -H -o value type $srcfs`"
 	if [[ "$check" == "volume" ]] ; then
 		vol=1
-		if ((! Z_HAS_O )) ; then
+		if ((! Z_HAS_CREATE_0 )) ; then
 			print "Sorry, your zfs is too old for zrep to safely handle volume initialization"
 			zrep_errquit "Please initialize volume target by hand, if you won't upgrade"
 		fi
@@ -309,7 +309,7 @@ zrep_init(){
 	#setfsconfigs may do some "smarts" to adjust value, so get it again.
 	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
 
-	if (( Z_HAS_O )) ; then
+	if (( Z_HAS_CREATE_O )) ; then
 		READONLYPROP="-o readonly=on"
 	else
 		READONLYPROP=""
