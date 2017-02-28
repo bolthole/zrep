@@ -296,10 +296,15 @@ zrep_init(){
 	check="`zfs get -H -o value type $srcfs`"
 	if [[ "$check" == "volume" ]] ; then
 		vol=1
-		if ((! Z_HAS_CREATE_0 )) ; then
-			print "Sorry, your zfs is too old for zrep to safely handle volume initialization"
-			zrep_errquit "Please initialize volume target by hand, if you won't upgrade"
+		if (( ! Z_HAS_REC_O )) ; then
+			echo WARNING: no proper recv -o detected
+			echo WARNING: extremely old versions of ZFS crash with volume init
+			echo Continuing in 5 seconds....
+			sleep 5
 		fi
+		# for details,see
+		#  https://groups.google.com/forum/#!topic/comp.unix.solaris/-5bcZFInozk
+		# subject:"solaris 11 crash when zfs send/receive of volume"
 	fi
 	
 
@@ -309,11 +314,11 @@ zrep_init(){
 	#setfsconfigs may do some "smarts" to adjust value, so get it again.
 	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
 
-	if (( Z_HAS_CREATE_O )) ; then
+	if (( Z_HAS_REC_O )) ; then
 		READONLYPROP="-o readonly=on"
 	else
 		READONLYPROP=""
-		print Warning: zfs lacking -o argument
+		print Warning: zfs recv lacking -o property   argument
 		print Creating destination filesystem as separate step
 		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $destfs || zrep_errquit "Cannot create $desthost:$destfs"
 	fi
