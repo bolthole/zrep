@@ -197,7 +197,7 @@ zrep_list_snaps(){
 	if [[ "$1" == "" ]] ; then
 		set -- `_master_fs_names`
 		if [[ "$1" == "" ]] ; then
-			print "No zrep master filesystems found" >/dev/fd/2
+			_errprint "No zrep master filesystems found"
 			return 0
 		fi
 	fi

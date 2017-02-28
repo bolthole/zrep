@@ -335,7 +335,7 @@ zrep_sync(){
 	fi
 
 	if [[ "$1" == "" ]] ; then
-		print Error: no filesystems specified for sync >/dev/fd/2
+		_errprint Error: no filesystems specified for sync
 		return 1
 	fi
 
@@ -434,7 +434,7 @@ zrep_refresh(){
 
 	destfs="$1"
 	if [[ "$1" == "" ]] ; then
-		print Error: no filesystems specified for refresh >/dev/fd/2
+		_errprint Error: no filesystems specified for refresh
 		return 1
 	fi
 
@@ -483,7 +483,7 @@ zrep_refresh(){
 
 	zfs set $senttimeprop $destfs@$newseq
 	if [[ $? -ne 0 ]] ; then
-		print WARNING: expected local copy $destfs@newseq does not exist >/dev/fd/2
+		_errprint WARNING: expected local copy $destfs@newseq does not exist
 	fi
 
 	_debugprint Running local expires on $destfs
@@ -508,7 +508,11 @@ _refreshpull(){
 	snapname="$1"
 	fs=${snapname%@*}
 
-	_debugprint _refreshpull: snapname=$snapname, fs=$fs >/dev/fd/2
+	# Keep in mind that stdin/out is busy so have to use stderr.
+	# Cant use regular debugprint
+	if [[ "$DEBUG" != "" ]] ; then
+	     _errprint _refreshpull: snapname=$snapname, fs=$fs
+	fi
 
 	zrep_lock_fs $fs
 	if [[ $? -ne 0  ]] ; then

@@ -143,14 +143,14 @@ makesnap(){
 	#sanity checks first!
 	check="`zfs get -H -o value ${ZREPTAG}:src-host $1`"
 	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
-		print ERROR: we are not master host for $1 >/dev/fd/2
-		print master is $check, we are $Z_LOCAL_HOST  >/dev/fd/2
+		_errprint ERROR: we are not master host for $1
+		_errprint print master is $check, we are $Z_LOCAL_HOST
 		exit 1
 	fi
 
 	zrep_has_fs_lock $1
 	if [[ $? -ne 0 ]] ; then
-		print Internal error:  makesnap fail, no lock on $1 >/dev/fd/2
+		_errprint Internal error:  makesnap fail, no lock on $1
 		exit 1
 	fi
 
@@ -160,7 +160,7 @@ makesnap(){
 	newseqX=$(printf "%.6x" $(($newseq + 1))  )
 
 
-	#print DEBUG old=$oldseq new=$newseqX >/dev/fd/2
+	#_errprint DEBUG old=$oldseq new=$newseqX
 	newsnap="$1@${ZREPTAG}_$newseqX"
 	
 	zfs snapshot $Z_SNAP_R $newsnap
@@ -430,8 +430,8 @@ zrep_changeconfig(){
 
 	check=`getlastsnap $srcfs`
 	if [[ "$check" == "" ]] ; then
-		print "No pre-existing zrep snapshots found on $srcfs" >/dev/fd/2
-		print $srcfs is not initialized for zrep. cannot change config. >/dev/fd/2
+		_errprint "No pre-existing zrep snapshots found on $srcfs"
+		_errprint $srcfs is not initialized for zrep. cannot change config.
 		zrep_errquit Use zrep init on $srcfs instead
 	fi
 

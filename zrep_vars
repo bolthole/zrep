@@ -100,8 +100,8 @@ if [[ "$ZREP_R" == "-R" ]] ; then
 fi
 
 if [[ "$MBUFFER" != "" ]] ; then
-	print WARNING: MBUFER variable deprecated in zrep >/dev/fd/2
-	print WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead >/dev/fd/2
+	_errprint WARNING: MBUFER variable deprecated in zrep
+	_errprint WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead
 	ZREP_OUTFILTER="$ZREP_OUTFILTER $MBUFFER"
 	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
 fi
@@ -257,9 +257,9 @@ zrep_get_global_lock(){
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
 		if ! -d /proc/$lockpid ; then
-			echo ERROR: stale global lock file >/dev/fd/2
-			echo ERROR: shut down ALL zrep instances, then manually remove
-			echo   $Z_GLOBAL_LOCKFILE
+			_errprint ERROR: stale global lock file
+			_errprint ERROR: shut down ALL zrep instances, then manually remove
+			_errprint $Z_GLOBAL_LOCKFILE
 		fi
 
 	done
@@ -318,7 +318,11 @@ zrep_lock_fs(){
 			zrep_release_global_lock
 			return 1
 		fi
-		_debugprint overiding stale lock on $1 from pid $check >/dev/fd/2
+		# Keep in mind that stdin/out could be busy
+		# Cant use regular debugprint
+		if [[ "$DEBUG" != "" ]] ; then
+			_errprint  overiding stale lock on $1 from pid $check
+		fi
 	fi
 	
 	zfs set ${ZREPTAG}:lock-pid=$$ $1
@@ -347,7 +351,7 @@ zrep_unlock_fs(){
 #   I'll need to plan that out more carefully!
 #
 zrep_errquit(){
-	print Error: "$@" >/dev/fd/2
+	_errprint Error: "$@"
 
 	if zrep_has_global_lock ; then
 		if [[ "$$" -ne "$Z_GLOBAL_PID" ]] ; then
@@ -399,4 +403,11 @@ _debugprint(){
 	if [[ "$DEBUG" != "" ]] ; then
 	   print DEBUG: $@
 	fi	 
+}
+
+# This consolidated function is both for prettiness, and also
+# to make dealing with github issue #22 easier, about redirecting stderr
+_errprint(){
+	print $@ >/dev/fd/2
+
 }

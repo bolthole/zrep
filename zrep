@@ -106,8 +106,8 @@ if [[ "$ZREP_R" == "-R" ]] ; then
 fi
 
 if [[ "$MBUFFER" != "" ]] ; then
-	print WARNING: MBUFER variable deprecated in zrep >/dev/fd/2
-	print WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead >/dev/fd/2
+	_errprint WARNING: MBUFER variable deprecated in zrep
+	_errprint WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead
 	ZREP_OUTFILTER="$ZREP_OUTFILTER $MBUFFER"
 	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
 fi
@@ -263,9 +263,9 @@ zrep_get_global_lock(){
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
 		if ! -d /proc/$lockpid ; then
-			echo ERROR: stale global lock file >/dev/fd/2
-			echo ERROR: shut down ALL zrep instances, then manually remove
-			echo   $Z_GLOBAL_LOCKFILE
+			_errprint ERROR: stale global lock file
+			_errprint ERROR: shut down ALL zrep instances, then manually remove
+			_errprint $Z_GLOBAL_LOCKFILE
 		fi
 
 	done
@@ -324,7 +324,11 @@ zrep_lock_fs(){
 			zrep_release_global_lock
 			return 1
 		fi
-		_debugprint overiding stale lock on $1 from pid $check >/dev/fd/2
+		# Keep in mind that stdin/out could be busy
+		# Cant use regular debugprint
+		if [[ "$DEBUG" != "" ]] ; then
+			_errprint  overiding stale lock on $1 from pid $check
+		fi
 	fi
 	
 	zfs set ${ZREPTAG}:lock-pid=$$ $1
@@ -353,7 +357,7 @@ zrep_unlock_fs(){
 #   I'll need to plan that out more carefully!
 #
 zrep_errquit(){
-	print Error: "$@" >/dev/fd/2
+	_errprint Error: "$@"
 
 	if zrep_has_global_lock ; then
 		if [[ "$$" -ne "$Z_GLOBAL_PID" ]] ; then
@@ -405,6 +409,13 @@ _debugprint(){
 	if [[ "$DEBUG" != "" ]] ; then
 	   print DEBUG: $@
 	fi	 
+}
+
+# This consolidated function is both for prettiness, and also
+# to make dealing with github issue #22 easier, about redirecting stderr
+_errprint(){
+	print $@ >/dev/fd/2
+
 }
 ###### zrep_status
 
@@ -605,7 +616,7 @@ zrep_list_snaps(){
 	if [[ "$1" == "" ]] ; then
 		set -- `_master_fs_names`
 		if [[ "$1" == "" ]] ; then
-			print "No zrep master filesystems found" >/dev/fd/2
+			_errprint "No zrep master filesystems found"
 			return 0
 		fi
 	fi
@@ -762,14 +773,14 @@ makesnap(){
 	#sanity checks first!
 	check="`zfs get -H -o value ${ZREPTAG}:src-host $1`"
 	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
-		print ERROR: we are not master host for $1 >/dev/fd/2
-		print master is $check, we are $Z_LOCAL_HOST  >/dev/fd/2
+		_errprint ERROR: we are not master host for $1
+		_errprint print master is $check, we are $Z_LOCAL_HOST
 		exit 1
 	fi
 
 	zrep_has_fs_lock $1
 	if [[ $? -ne 0 ]] ; then
-		print Internal error:  makesnap fail, no lock on $1 >/dev/fd/2
+		_errprint Internal error:  makesnap fail, no lock on $1
 		exit 1
 	fi
 
@@ -779,7 +790,7 @@ makesnap(){
 	newseqX=$(printf "%.6x" $(($newseq + 1))  )
 
 
-	#print DEBUG old=$oldseq new=$newseqX >/dev/fd/2
+	#_errprint DEBUG old=$oldseq new=$newseqX
 	newsnap="$1@${ZREPTAG}_$newseqX"
 	
 	zfs snapshot $Z_SNAP_R $newsnap
@@ -1049,8 +1060,8 @@ zrep_changeconfig(){
 
 	check=`getlastsnap $srcfs`
 	if [[ "$check" == "" ]] ; then
-		print "No pre-existing zrep snapshots found on $srcfs" >/dev/fd/2
-		print $srcfs is not initialized for zrep. cannot change config. >/dev/fd/2
+		_errprint "No pre-existing zrep snapshots found on $srcfs"
+		_errprint $srcfs is not initialized for zrep. cannot change config.
 		zrep_errquit Use zrep init on $srcfs instead
 	fi
 
@@ -1397,7 +1408,7 @@ zrep_sync(){
 	fi
 
 	if [[ "$1" == "" ]] ; then
-		print Error: no filesystems specified for sync >/dev/fd/2
+		_errprint Error: no filesystems specified for sync
 		return 1
 	fi
 
@@ -1496,7 +1507,7 @@ zrep_refresh(){
 
 	destfs="$1"
 	if [[ "$1" == "" ]] ; then
-		print Error: no filesystems specified for refresh >/dev/fd/2
+		_errprint Error: no filesystems specified for refresh
 		return 1
 	fi
 
@@ -1545,7 +1556,7 @@ zrep_refresh(){
 
 	zfs set $senttimeprop $destfs@$newseq
 	if [[ $? -ne 0 ]] ; then
-		print WARNING: expected local copy $destfs@newseq does not exist >/dev/fd/2
+		_errprint WARNING: expected local copy $destfs@newseq does not exist
 	fi
 
 	_debugprint Running local expires on $destfs
@@ -1570,7 +1581,11 @@ _refreshpull(){
 	snapname="$1"
 	fs=${snapname%@*}
 
-	_debugprint _refreshpull: snapname=$snapname, fs=$fs >/dev/fd/2
+	# Keep in mind that stdin/out is busy so have to use stderr.
+	# Cant use regular debugprint
+	if [[ "$DEBUG" != "" ]] ; then
+	     _errprint _refreshpull: snapname=$snapname, fs=$fs
+	fi
 
 	zrep_lock_fs $fs
 	if [[ $? -ne 0  ]] ; then
