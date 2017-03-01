@@ -17,11 +17,13 @@ high level operation types:
     0. Check if filesystem already known by zrep. Quit if it is.
        Quit if localfilesystem does not exist.
 
-    1. set zrep: properties on 
+    1. set zrep:xyz properties on local master filesystem
     2. Create new remote fs, and set readonly flag.
        (overwrite allows admins to handcreate fs with special options)
     3. sync up.
-    Full details below:
+
+
+    Sample usage with comments below:
        
 
     host1# zrep -i pool/fs host2 host2pool
@@ -34,16 +36,18 @@ high level operation types:
 	# just the one specified in the zfs send command!
 
 
-    ( ## need to get global lock here? Naw, creation of snap _0 can serve for that)
-    ( if fail, dont have lock so quit )
+    ## need to get global lock here?
+    ## Naw, creation of snap _0 can serve for that
+    # if fail, dont have lock so quit 
 
-    (creates snap pool/fs/@zrep_xxxx_xxx_0)
+    #creates snap pool/fs/@zrep_xxxx_xxx_0
 
-    (goes and checks out host2)
+    #old way: manually creates remote, empty filesystem  
     ...(ssh host2 zfs create -o readonly=on pool2host/fs )
-    
-    ( zfs send pool/fs@zrep_xxx_xxx_0  |
+       ( zfs send pool/fs@zrep_xxx_xxx_0  |
           zfs recv -F  host2pool/fs  )
+    #new way: autocreate in one shot with full zfs send,
+    #  set readonly after the create)
 
     (rename pool/fs@zrep_xxx to pool/fs@zrep_xxx_sent)
       # Q: "Is renaming snap okay?"
@@ -57,6 +61,9 @@ high level operation types:
    oooo  A: can we sync further, if it remains read-only?
    oooo  Yes we can. In which case, good safety measure is make
    oooo  it read-only at creation-time
+
+
+
 
 *** Workflow for zrep to do zrep -S fs (sync of some fs)
 
