@@ -91,7 +91,8 @@ case "$1" in
 		;;
 	clear)
 		shift
-		zrep_clear $1
+		# only actually allows ONE  fs, but with optional -f
+		zrep_clear "$@"
 		;;
 	expire|-e)
 		shift
