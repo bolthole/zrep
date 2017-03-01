@@ -36,11 +36,11 @@ zrep_failover(){
 	remotehost=`zfs get -H -o value ${ZREPTAG}:dest-host $fs`
 	remotefs=`zfs get -H -o value ${ZREPTAG}:dest-fs $fs`
 
-	print setting readonly on local $fs, then syncing
+	print Setting readonly on local $fs, then syncing
 	zfs set readonly=on $fs
 
 	if ((local ==1)) ; then
-		print failover for $1 in LOCAL mode
+		print Failover for $1 in LOCAL mode
 		if [[ "$snap" == "" ]] ; then
 			snap=`getlastsnapsent $1`
 			zfs list $1 >/dev/null ||
@@ -123,7 +123,7 @@ zrep_takeover(){
 
 	if (( local == 0 )) ; then
 
-		print starting failover from remote side $remotehost
+		print Starting failover from remote side $remotehost
 		zrep_ssh $remotehost $ZREP_PATH failover $remotefs
 		exit $?
 	fi
@@ -166,8 +166,12 @@ zrep_takeover(){
 	zfs set ${ZREPTAG}:master=yes $fs
 
 	# Since we default to creating replicas unmounted... mount it now
-	print making sure $Z_LOCAL_HOST:$fs is mounted
-	zfs mount $fs
+	if [[ "`zfs get -H -o value type $fs`" == "filesystem" ]] ; then
+		if [[ "`zfs get -H -o value mounted $fs`" == "no" ]] ; then
+				print Mounting $Z_LOCAL_HOST:$fs
+				zfs mount $fs
+		fi
+	fi
 	
 	zrep_unlock_fs $fs
 	
