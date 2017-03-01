@@ -1,0 +1,55 @@
+# reference output, for zfs help, on a 2006 release of solaris.
+# This is to help with our zfs version parsing.
+
+unrecognized command 'help'
+usage: zfs command args ...
+where 'command' is one of the following:
+
+	create [-p] [-o property=value] ... <filesystem>
+	create [-ps] [-b blocksize] [-o property=value] ... -V <size> <volume>
+	destroy [-rRf] <filesystem|volume|snapshot>
+
+	snapshot [-r] <filesystem@snapname|volume@snapname>
+	rollback [-rRf] <snapshot>
+	clone [-p] <snapshot> <filesystem|volume>
+	promote <clone-filesystem>
+	rename <filesystem|volume|snapshot> <filesystem|volume|snapshot>
+	rename -p <filesystem|volume> <filesystem|volume>
+	rename -r <snapshot> <snapshot>
+	list [-rH] [-o property[,...]] [-t type[,...]] [-s property] ...
+	    [-S property] ... [filesystem|volume|snapshot] ...
+
+	set <property=value> <filesystem|volume> ...
+	get [-rHp] [-o field[,...]] [-s source[,...]]
+	    <"all" | property[,...]> [filesystem|volume|snapshot] ...
+	inherit [-r] <property> <filesystem|volume> ...
+	upgrade [-v]
+	upgrade [-r] [-V version] <-a | filesystem ...>
+
+	mount
+	mount [-vO] [-o opts] <-a | filesystem>
+	unmount [-f] <-a | filesystem|mountpoint>
+	share <-a | filesystem>
+	unshare [-f] <-a | filesystem|mountpoint>
+
+	send [-R] [-[iI] snapshot] <snapshot>
+	receive [-vnF] <filesystem|volume|snapshot>
+	receive [-vnF] -d <filesystem>
+
+	allow [-ldug] <"everyone"|user|group>[,...] <perm|@setname>[,...]
+	    <filesystem|volume>
+	allow [-ld] -e <perm|@setname>[,...] <filesystem|volume>
+	allow -c <perm|@setname>[,...] <filesystem|volume>
+	allow -s @setname <perm|@setname>[,...] <filesystem|volume>
+
+	unallow [-rldug] <"everyone"|user|group>[,...]
+	    [<perm|@setname>[,...]] <filesystem|volume>
+	unallow [-rld] -e [<perm|@setname>[,...]] <filesystem|volume>
+	unallow [-r] -c [<perm|@setname>[,...]] <filesystem|volume>
+	unallow [-r] -s @setname [<perm|@setname>[,...]] <filesystem|volume>
+
+Each dataset is of the form: pool/[dataset/]*dataset[@name]
+
+For the property list, run: zfs set|get
+
+For the delegated permission list, run: zfs allow|unallow

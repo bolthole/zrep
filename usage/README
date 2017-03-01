@@ -1,0 +1,6 @@
+This directory is not for zrep usage, but to archive samples of
+"zfs -?" or similar usage message, on various OS's, to aid me
+in autodetection of features.
+
+This sort of thing is useful because sadly, there is no standardized
+ZFS version spec (therefore, there is no valid "zfs version" command)
