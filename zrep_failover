@@ -164,6 +164,10 @@ zrep_takeover(){
 	zfs set ${ZREPTAG}:dest-host=$remotehost $fs
 
 	zfs set ${ZREPTAG}:master=yes $fs
+
+	# Since we default to creating replicas unmounted... mount it now
+	print making sure $Z_LOCAL_HOST:$fs is mounted
+	zfs mount $fs
 	
 	zrep_unlock_fs $fs
 	
