@@ -288,7 +288,7 @@ setfsconfigs(){
 #
 zrep_init(){
 	typeset srcfs="$1" desthost="$2" destfs="$3" snap check vol=0
-	typeset mountpoint
+	typeset mountpoint vflags
 
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
@@ -312,6 +312,10 @@ zrep_init(){
 			echo WARNING: extremely old versions of ZFS crash with volume init
 			echo Continuing in 5 seconds....
 			sleep 5
+			vflags="`zfs get -H -o value volsize $srcfs`"
+			vflags="-V $vflags"
+
+
 		fi
 		# for details,see
 		#  https://groups.google.com/forum/#!topic/comp.unix.solaris/-5bcZFInozk
@@ -334,7 +338,7 @@ zrep_init(){
 		READONLYPROP=""
 		print Warning: zfs recv lacking -o readonly
 		print Creating readonly destination filesystem as separate step
-		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $destfs || zrep_errquit "Cannot create $desthost:$destfs"
+		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
 	fi
 
 	snap="${srcfs}@${ZREPTAG}_000000"
