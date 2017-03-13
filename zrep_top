@@ -26,7 +26,7 @@ usage(){
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
 	print 'zrep refresh ZFS/fs               -- pull version of sync'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
-	print 'zrep (list|-l) -s     [fs/names]' 
+	print 'zrep (list|-l) -s     [fs/names]  -- list snapshots' 
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
