@@ -1979,7 +1979,7 @@ usage(){
 	print 'zrep failover [-L] ZFS/fs'
 	print 'zrep takeover [-L] ZFS/fs'
 	print 'zrep version'
-	print 'zrep clear ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
+	print 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
 	print
 	print '   -q option says to Quietly ignore locked filesystems that have synced'
 	print '      more recently than the given amount of seconds'
