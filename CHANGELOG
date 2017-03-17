@@ -116,3 +116,9 @@ version 1.6
 version 1.6.7
 	various bugfixes. 
 	added "zrep version"
+
+version 1.6.8
+	gentoo locking fix
+	ZFS version checking improvements
+	Allow init of volumes on more OS's
+	
