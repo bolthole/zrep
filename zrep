@@ -336,6 +336,9 @@ zrep_lock_fs(){
 	
 	zfs set ${ZREPTAG}:lock-pid=$$ $1
 	zfs set ${ZREPTAG}:lock-time=`date +%Y%m%d%H%M%S` $1
+	if [[ "$DEBUG" != "" ]] ; then
+		_errprint zrep_lock_fs: set lock on $1
+	fi
 	zrep_release_global_lock 
 }
 
@@ -349,6 +352,9 @@ zrep_unlock_fs(){
 	#since "we" already have it locked, no need to get global lock first
 	zfs inherit ${ZREPTAG}:lock-time $1
 	zfs inherit ${ZREPTAG}:lock-pid $1
+	if [[ "$DEBUG" != "" ]] ; then
+		_errprint zrep_unlock_fs: unset lock on $1
+	fi
 
 	return 0
 }
@@ -1675,7 +1681,7 @@ _expire(){
 
 	master=`zfs get -H -o value -s local ${ZREPTAG}:master $1`
 
-	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock
+	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock on $1
 
 	savecount=`zfs get -H -o value ${ZREPTAG}:savecount $1`
 	# do not use (()) in case value unset

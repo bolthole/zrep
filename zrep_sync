@@ -578,7 +578,7 @@ _expire(){
 
 	master=`zfs get -H -o value -s local ${ZREPTAG}:master $1`
 
-	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock
+	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock on $1
 
 	savecount=`zfs get -H -o value ${ZREPTAG}:savecount $1`
 	# do not use (()) in case value unset
