@@ -392,7 +392,8 @@ zrep_ssh(){
 			ssh_cmd="eval"
 			;;
 		*)
-			ssh_cmd="$SSH $1"
+			# by default, DEBUG doesnt get passed through ssh
+			ssh_cmd="$SSH DEBUG=${DEBUG} $1"
 			;;
 	esac
 	shift
