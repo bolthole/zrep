@@ -315,7 +315,13 @@ zrep_lock_fs(){
 		ls -d /proc/$check >/dev/null 2>&1 && return 1
 	fi
 
-	zrep_get_global_lock  || return 1
+	zrep_get_global_lock
+	if [[ $? -ne 0 ]] ; then
+		if [[ "$DEBUG" != "" ]] ; then
+		_errprint zrep_lock_fs: failed to get global lock. PID=$$ fs=$1
+		fi
+		return 1
+	fi
 
 	# Double-check if needed, now that we have global lock
 	if [[ "$check" != "-" ]] ; then
