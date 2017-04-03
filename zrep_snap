@@ -64,7 +64,7 @@ getlastsnapsent(){
 # 
 # In future, may take optional argument of which HOST to check 
 # sync with. But since I currently only suport one host per fs... oh well.
-# If never synced, will return 1, and print "-"
+# If never synced, will return 1, and print ""
 #
 getlastsynctime(){
 	typeset fs lastsent senttime
@@ -81,12 +81,12 @@ getlastsynctime(){
 	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $fs |
 	   sort | tail -1`
 	senttime=`zfs get  -H -o value ${ZREPTAG}:sent $lastsent`
-	if [[ "$senttime" != "-" ]] ; then print $senttime ; return 0; fi
+	if [[ "$senttime" != "" ]] ; then print $senttime ; return 0; fi
 
 	# ooops. try fallback to nasty old zfs-compat style
 	senttime=`zfs get -H -o value ${ZREPTAG}:lastsent $fs`
 	print $senttime
-	if [[ "$senttime" != "-" ]] ; then return 0; fi
+	if [[ "$senttime" != "" ]] ; then return 0; fi
 	return 1
 }
 
@@ -211,7 +211,7 @@ _clear(){
 clearquit(){
 	remhost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $1`
 	remfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $1`
-	if [[ $? -eq 0 ]] && [[ "$remhost" != "-" ]] && [[ "$remfs" != "-" ]]; then
+	if [[ $? -eq 0 ]] && [[ "$remhost" != "" ]] && [[ "$remfs" != "" ]]; then
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
 
@@ -296,10 +296,10 @@ zrep_init(){
 
 	#sanity checks
 	check="`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`"
-	if [[ "$check" != "-" ]] ; then
+	if [[ "$check" != "" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
 		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
-		if [[ "$check" != "-" ]] ; then
+		if [[ "$check" != "" ]] ; then
 			zrep_errquit "${ZREPTAG}:master detected!!"
 		fi
 		zrep_errquit "To re-initialize, first use zrep clear $srcfs"

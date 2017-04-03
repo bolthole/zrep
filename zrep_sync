@@ -46,7 +46,7 @@ zrep_sentsync(){
 	esac
 
 	typeset sentcheck=`$ZFSGETLVAL ${ZREPTAG}:sent $srcfs`
-	if [[ "$sentcheck" != "-" ]] ; then
+	if [[ "$sentcheck" != "" ]] ; then
 		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
 	fi
 
@@ -285,7 +285,7 @@ zrep_synconly(){
 
 	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
@@ -346,7 +346,7 @@ zrep_sync(){
 
 	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi

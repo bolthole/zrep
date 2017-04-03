@@ -289,7 +289,8 @@ zrep_release_global_lock(){
 }
 
 # returns PID of zrep process holding a lock on filesystem, if there is one.
-# NOTE: prints "-" NOT "", if lock unheld
+# NOTE: If "-s local" used, prints "" if lock unheld
+# If no -s specified, prints "-" if lock unheld
 zrep_fs_lock_pid(){
 	$ZFSGETLVAL ${ZREPTAG}:lock-pid $1
 }
@@ -311,7 +312,7 @@ zrep_has_fs_lock(){
 zrep_lock_fs(){
 	# global lock is slow. so do quickcheck first.
 	typeset check=`zrep_fs_lock_pid $1` newcheck
-	if [[ "$check" != "-" ]] ; then
+	if [[ "$check" != "" ]] ; then
 		# See if owning process still exists.
 		ls -d /proc/$check >/dev/null 2>&1 && return 1
 	fi
@@ -325,12 +326,12 @@ zrep_lock_fs(){
 	fi
 
 	# Double-check if needed, now that we have global lock
-	if [[ "$check" != "-" ]] ; then
+	if [[ "$check" != "" ]] ; then
 		newcheck=`zrep_fs_lock_pid $1`
-		if [[ "$newcheck" != "$check" ]] && [[ "$newcheck" != "-" ]]
+		if [[ "$newcheck" != "$check" ]] && [[ "$newcheck" != "" ]]
 		then
 			# oops. someone else must have dealt with it.
-			# If they havent reset it to "-" then give up
+			# If they havent reset it then give up
 			zrep_release_global_lock
 			return 1
 		fi
