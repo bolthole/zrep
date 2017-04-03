@@ -343,7 +343,7 @@ zrep_lock_fs(){
 	zfs set ${ZREPTAG}:lock-pid=$$ $1
 	zfs set ${ZREPTAG}:lock-time=`date +%Y%m%d%H%M%S` $1
 	if [[ "$DEBUG" != "" ]] ; then
-		_errprint zrep_lock_fs: set lock on $1
+		_errprint DEBUG: zrep_lock_fs: set lock on $1
 	fi
 	zrep_release_global_lock 
 }
