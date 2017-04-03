@@ -17,7 +17,7 @@ zrep_failover(){
 	fi
 
 	zfs list $1 >/dev/null || zrep_errquit invalid filesystem $1
-	check=`zfs get -H -o value -s local ${ZREPTAG}:master $1`
+	check=`$ZFSGETLVAL ${ZREPTAG}:master $1`
 	if [[ "$check" != "yes" ]] ; then
 		zrep_errquit $1 not master. Cannot fail over
 	fi
@@ -33,8 +33,8 @@ zrep_failover(){
 
 	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
 
-	remotehost=`zfs get -H -o value ${ZREPTAG}:dest-host $fs`
-	remotefs=`zfs get -H -o value ${ZREPTAG}:dest-fs $fs`
+	remotehost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $fs`
+	remotefs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $fs`
 
 	print Setting readonly on local $fs, then syncing
 	zfs set readonly=on $fs
@@ -111,14 +111,14 @@ zrep_takeover(){
 
 	zfs list $fs >/dev/null || zrep_errquit invalid filesystem $fs
 
-	check=`zfs get -H -o value -s local ${ZREPTAG}:master $fs`
+	check=`$ZFSGETLVAL ${ZREPTAG}:master $fs`
 	if [[ "$check" = "yes" ]] ; then
 		zrep_errquit $fs is already master. Cannot takeover
 	fi
 
 
-	remotehost=`zfs get -H -o value ${ZREPTAG}:src-host $fs`
-	remotefs=`zfs get -H -o value ${ZREPTAG}:src-fs $fs`
+	remotehost=`$ZFSGETLVAL ${ZREPTAG}:src-host $fs`
+	remotefs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $fs`
 
 
 	if (( local == 0 )) ; then

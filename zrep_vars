@@ -78,9 +78,16 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 #########################################################################
 #########################################################################
 # Everyting else below here, should not be touched. 
-# First we have autodetect routines,
+
+# First we have some "special" internal vars.
+# Then autodetect routines,
 # and then internal utilities such as locking functions.
 
+
+# This thing is so long and ugly, this is just an internal convenience
+# Get a zfs property on fs or snap. Get JUST the value, and only
+# a "locally set" value rather than an inherited one 
+ZFSGETLVAL="zfs get -H -o value -s local"
 # Work around a bug in gentoo ksh that breaks "ls -l" builtin.
 # Would prefer to just override with _AST_FEATURES, but apparently,
 # that only gets checked when ksh first starts or something
@@ -284,10 +291,10 @@ zrep_release_global_lock(){
 # returns PID of zrep process holding a lock on filesystem, if there is one.
 # NOTE: prints "-" NOT "", if lock unheld
 zrep_fs_lock_pid(){
-	zfs get -H -o value ${ZREPTAG}:lock-pid $1
+	$ZFSGETLVAL ${ZREPTAG}:lock-pid $1
 }
 zrep_has_fs_lock(){
-	typeset check=`zfs get -H -o value ${ZREPTAG}:lock-pid $1`
+	typeset check=`$ZFSGETLVAL ${ZREPTAG}:lock-pid $1`
 	if ((check == $$)) ; then
 	return 0
 	else

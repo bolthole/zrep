@@ -45,14 +45,14 @@ zrep_sentsync(){
 		;;
 	esac
 
-	typeset sentcheck=`zfs get -H -o value ${ZREPTAG}:sent $srcfs`
+	typeset sentcheck=`$ZFSGETLVAL ${ZREPTAG}:sent $srcfs`
 	if [[ "$sentcheck" != "-" ]] ; then
 		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
 	fi
 
 	typeset desthost destfs
-	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
-	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
+	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
+	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
 
 	typeset	senttimeprop="`_gensentprop`"
 
@@ -165,7 +165,7 @@ _snapandsync(){
 
 
 
-	#srchost=`zfs get -H -o value ${ZREPTAG}:src-host $srcfs`
+	#srchost=`$ZFSGETLVAL ${ZREPTAG}:src-host $srcfs`
 	#if [[ "$srchost" != "$Z_LOCAL_HOST" ]] ; then
 	#	zrep_errquit _sync: We are not master for $srcfs
 	#fi
@@ -283,8 +283,8 @@ zrep_synconly(){
 
 	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for synconly
 
-	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
-	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
+	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
+	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
 	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
@@ -344,8 +344,8 @@ zrep_sync(){
 
 	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for sync
 
-	desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
-	destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`
+	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
+	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
 	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
@@ -438,13 +438,13 @@ zrep_refresh(){
 		return 1
 	fi
 
-	master=`zfs get -H -o value -s local ${ZREPTAG}:master $destfs`
+	master=`$ZFSGETLVAL ${ZREPTAG}:master $destfs`
 	if [[ "$master" == "yes" ]] ; then
 		zrep_errquit Sorry, you cant run refresh on a master mode fs $destfs
 	fi
 
-	srchost=`zfs get -H -o value ${ZREPTAG}:src-host $destfs`
-	srcfs=`zfs get -H -o value ${ZREPTAG}:src-fs $destfs`
+	srchost=`$ZFSGETLVAL ${ZREPTAG}:src-host $destfs`
+	srcfs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $destfs`
 
 	zrep_lock_fs $destfs
 	if [[ $? -ne 0 ]] ; then
@@ -576,11 +576,11 @@ _expire(){
 		shift
 	fi
 
-	master=`zfs get -H -o value -s local ${ZREPTAG}:master $1`
+	master=`$ZFSGETLVAL ${ZREPTAG}:master $1`
 
 	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock on $1
 
-	savecount=`zfs get -H -o value ${ZREPTAG}:savecount $1`
+	savecount=`$ZFSGETLVAL ${ZREPTAG}:savecount $1`
 	# do not use (()) in case value unset
 	if [[ $savecount < 1 ]] ; then
 		zrep_errquit ${ZREPTAG}:savecount on $1 set to improper value $savecount
@@ -626,10 +626,10 @@ _expire(){
 		#otherwise, go expire on remote side as well
 	fi
 
-	remotehost=`zfs get -H -o value ${ZREPTAG}:dest-host $1`
-	remotefs=`zfs get -H -o value ${ZREPTAG}:dest-fs $1`
+	remotehost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $1`
+	remotefs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $1`
 	print Also running expire on $remotehost:$remotefs now...
-	sanity=`zrep_ssh $remotehost zfs get -H -o value -s local ${ZREPTAG}:master $remotefs`
+	sanity=`zrep_ssh $remotehost $ZFSGETLVAL ${ZREPTAG}:master $remotefs`
 
 	# Normally, dont quit on error. But this is super-bad.
 	if [[ "$sanity" == "yes" ]] ; then

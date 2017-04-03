@@ -32,7 +32,7 @@ zrep_status(){
 	while [[ "$1" != "" ]] ; do
 		fs="$1"
 
-		destfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $fs`
+		destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $fs`
 		if [[ "$destfs" == "-" ]] || [[ "$destfs" == "" ]]; then
 			zrep_errquit "$fs is not a zrep registered filesystem"
 		fi
@@ -48,7 +48,7 @@ zrep_status(){
 			# then we have to make sure left side is always
 			#  "src filesystem", not "named filesystem"
 			# then we have to check what the src fs is
-			srcfs=`zfs get -H -o value ${ZREPTAG}:src-fs $fs`
+			srcfs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $fs`
 		else
 			# Yes, okay, if -a is used, then
 			# technically, this isnt always "src".
@@ -57,7 +57,7 @@ zrep_status(){
 		fi
 
 		if ((verbose)) ; then
-			desthost=`zfs get -H -o value ${ZREPTAG}:dest-host $srcfs`
+			desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "${date#????}"
 		else
 			printf "%-47s" $srcfs
@@ -86,7 +86,7 @@ _master_fs_names(){
 zrep_list_master(){
 	typeset srchost
 	for fs in `_master_fs_names "$@"` ; do
-		srchost=`zfs get -H -o value ${ZREPTAG}:src-host $fs`
+		srchost=`$ZFSGETLVAL ${ZREPTAG}:src-host $fs`
 		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
 			print $fs
 		fi

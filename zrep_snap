@@ -141,7 +141,7 @@ makesnap(){
 	typeset  check oldseq newseq="" newseqX newsnap
 
 	#sanity checks first!
-	check="`zfs get -H -o value ${ZREPTAG}:src-host $1`"
+	check="`$ZFSGETLVAL ${ZREPTAG}:src-host $1`"
 	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
 		_errprint ERROR: we are not master host for $1
 		_errprint print master is $check, we are $Z_LOCAL_HOST
@@ -209,8 +209,8 @@ _clear(){
 ## call with "srcfs  errmsg1 errmsg2..."
 ## It will also REMOVE REMOTEFS if set in PROPERTIES!!
 clearquit(){
-	remhost=`zfs get -H -o value ${ZREPTAG}:dest-host $1`
-	remfs=`zfs get -H -o value ${ZREPTAG}:dest-fs $1`
+	remhost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $1`
+	remfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $1`
 	if [[ $? -eq 0 ]] && [[ "$remhost" != "-" ]] && [[ "$remfs" != "-" ]]; then
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
@@ -295,10 +295,10 @@ zrep_init(){
 	fi
 
 	#sanity checks
-	check="`zfs get -H -o value ${ZREPTAG}:dest-fs $srcfs`"
+	check="`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`"
 	if [[ "$check" != "-" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
-		check="`zfs get -H -o value ${ZREPTAG}:master $srcfs`"
+		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
 		if [[ "$check" != "-" ]] ; then
 			zrep_errquit "${ZREPTAG}:master detected!!"
 		fi
