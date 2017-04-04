@@ -580,7 +580,8 @@ _expire(){
 
 	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock on $1
 
-	savecount=`$ZFSGETLVAL ${ZREPTAG}:savecount $1`
+	# Allow propagated values as well as local, for savecount
+	savecount=`zfs get -H -o value ${ZREPTAG}:savecount $1`
 	# do not use (()) in case value unset
 	if [[ $savecount < 1 ]] ; then
 		zrep_errquit ${ZREPTAG}:savecount on $1 set to improper value $savecount
