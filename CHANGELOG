@@ -122,3 +122,7 @@ version 1.6.8
 	ZFS version checking improvements
 	Allow init of volumes on more OS's
 	
+version 1.7
+	bugfix for #44 expire/locking issues
+	the bugfix lead to some potentially significant internal 
+	standardization using new variable ZFSGETLVAL="zfs get -s local ..."
