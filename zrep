@@ -1917,8 +1917,8 @@ zrep_takeover(){
 	fi
 
 
-	remotehost=`$ZFSGETLVAL ${ZREPTAG}:src-host $fs`
-	remotefs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $fs`
+	remotehost=`zfs get -H -o value ${ZREPTAG}:src-host $fs`
+	remotefs=`zfs get -H -o value ${ZREPTAG}:src-fs $fs`
 
 
 	if (( local == 0 )) ; then
