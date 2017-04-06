@@ -277,6 +277,7 @@ setfsconfigs(){
 	zfs set ${ZREPTAG}:dest-fs=$destfs		$fsname
 	zfs set ${ZREPTAG}:dest-host=$desthost		$fsname
 	zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$fsname
+	zfs set ${ZREPTAG}:orig-host=$Z_LOCAL_HOST	$fsname
 }
 
 
@@ -396,7 +397,8 @@ zrep_init(){
 		zrep_ssh $desthost zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-fs=$destfs $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-host=$desthost $destfs
-		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:orig-host=$Z_LOCAL_HOST $destfs
 
 	fi
 
