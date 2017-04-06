@@ -285,7 +285,7 @@ zrep_synconly(){
 
 	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
@@ -346,7 +346,7 @@ zrep_sync(){
 
 	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi

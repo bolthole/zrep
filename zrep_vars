@@ -84,13 +84,16 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # and then internal utilities such as locking functions.
 
 
-# This thing is so long and ugly, this is just an internal convenience
+# zfs get syntax is so long and ugly, this is just an internal convenience
 # Get a zfs property on fs or snap. Get JUST the value, and only
 # a "locally set" value rather than an inherited one 
 ZFSGETLVAL="zfs get -H -o value -s local"
 # But.. sometimes you want to allow propagated values. like
 # the ones sent via the zrep_init setup
 ZFSGETVAL="zfs get -H -o value"
+#  **warning** !!
+# $ZFSGETLVAL returns "" on value not set. However,
+# $ZFSGETVAL  returns "-" on value not set. Grrr @zfs writers.
 
 
 # Work around a bug in gentoo ksh that breaks "ls -l" builtin.
