@@ -110,7 +110,7 @@ case "$1" in
 		shift
 		zrep_snaponly "$@"
 		;;
-	sync|-S)
+	sync|-S)  #remember, this is inverse of refresh
 		shift
 		zrep_sync "$@"
 		;;
