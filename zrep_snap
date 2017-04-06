@@ -141,7 +141,7 @@ makesnap(){
 	typeset  check oldseq newseq="" newseqX newsnap
 
 	#sanity checks first!
-	check="`$ZFSGETLVAL ${ZREPTAG}:src-host $1`"
+	check="`$ZFSGETVAL ${ZREPTAG}:src-host $1`"
 	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
 		_errprint ERROR: we are not master host for $1
 		_errprint print master is $check, we are $Z_LOCAL_HOST
@@ -209,8 +209,8 @@ _clear(){
 ## call with "srcfs  errmsg1 errmsg2..."
 ## It will also REMOVE REMOTEFS if set in PROPERTIES!!
 clearquit(){
-	remhost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $1`
-	remfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $1`
+	remhost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
+	remfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
 	if [[ $? -eq 0 ]] && [[ "$remhost" != "" ]] && [[ "$remfs" != "" ]]; then
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
@@ -295,7 +295,7 @@ zrep_init(){
 	fi
 
 	#sanity checks
-	check="`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`"
+	check="`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`"
 	if [[ "$check" != "" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
 		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
@@ -327,10 +327,11 @@ zrep_init(){
 	setfsconfigs $srcfs $desthost $destfs
 
 	#setfsconfigs may do some "smarts" to adjust value, so get it again.
-	destfs=`zfs get -H -o value -s local ${ZREPTAG}:dest-fs $srcfs`
+	# yes only check for LOCAL this time. Paranoia....
+	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
 
 	#get this for later
-	mountpoint=`zfs get -H -o value -s local mountpoint $srcfs`
+	mountpoint=`$ZFSGETLVAL mountpoint $srcfs`
 
 	if (( Z_HAS_REC_O )) ; then
 		READONLYPROP="-o readonly=on"

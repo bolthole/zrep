@@ -94,6 +94,11 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # Get a zfs property on fs or snap. Get JUST the value, and only
 # a "locally set" value rather than an inherited one 
 ZFSGETLVAL="zfs get -H -o value -s local"
+# But.. sometimes you want to allow propagated values. like
+# the ones sent via the zrep_init setup
+ZFSGETVAL="zfs get -H -o value"
+
+
 # Work around a bug in gentoo ksh that breaks "ls -l" builtin.
 # Would prefer to just override with _AST_FEATURES, but apparently,
 # that only gets checked when ksh first starts or something
@@ -136,9 +141,11 @@ fi
 # used to have polymorphic assign of ZREP_INC_FLAG here, but had
 # to move it to AFTER checking if -t option used
 
-
-# Capability for this  does not show in usage.
-# So, just tie this to MU6 related check,like HAS_SNAPPROPS
+# full name for this should probably be something like,
+# PROPTYPES_THAT_ZREP_STATUS_CAN_USE. But that's too long :)
+# Not easy to check if property types allow type "received".
+# Ancient systems do not allow it
+# So, just tie this to MU6 related check,like HAS_SNAPPROPS, lower down
 PROPTYPES="local,received" 
 
 
@@ -204,6 +211,7 @@ fi
 if ((!Z_HAS_SNAPPROPS)) ; then
 	PROPTYPES="local"
 fi
+
 rm $zrep_checkfile
 
 
@@ -475,7 +483,7 @@ zrep_status(){
 	while [[ "$1" != "" ]] ; do
 		fs="$1"
 
-		destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $fs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
 		if [[ "$destfs" == "-" ]] || [[ "$destfs" == "" ]]; then
 			zrep_errquit "$fs is not a zrep registered filesystem"
 		fi
@@ -491,7 +499,7 @@ zrep_status(){
 			# then we have to make sure left side is always
 			#  "src filesystem", not "named filesystem"
 			# then we have to check what the src fs is
-			srcfs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $fs`
+			srcfs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
 		else
 			# Yes, okay, if -a is used, then
 			# technically, this isnt always "src".
@@ -500,7 +508,7 @@ zrep_status(){
 		fi
 
 		if ((verbose)) ; then
-			desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
+			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "${date#????}"
 		else
 			printf "%-47s" $srcfs
@@ -529,7 +537,7 @@ _master_fs_names(){
 zrep_list_master(){
 	typeset srchost
 	for fs in `_master_fs_names "$@"` ; do
-		srchost=`$ZFSGETLVAL ${ZREPTAG}:src-host $fs`
+		srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
 		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
 			print $fs
 		fi
@@ -795,7 +803,7 @@ makesnap(){
 	typeset  check oldseq newseq="" newseqX newsnap
 
 	#sanity checks first!
-	check="`$ZFSGETLVAL ${ZREPTAG}:src-host $1`"
+	check="`$ZFSGETVAL ${ZREPTAG}:src-host $1`"
 	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
 		_errprint ERROR: we are not master host for $1
 		_errprint print master is $check, we are $Z_LOCAL_HOST
@@ -863,8 +871,8 @@ _clear(){
 ## call with "srcfs  errmsg1 errmsg2..."
 ## It will also REMOVE REMOTEFS if set in PROPERTIES!!
 clearquit(){
-	remhost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $1`
-	remfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $1`
+	remhost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
+	remfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
 	if [[ $? -eq 0 ]] && [[ "$remhost" != "" ]] && [[ "$remfs" != "" ]]; then
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
@@ -949,7 +957,7 @@ zrep_init(){
 	fi
 
 	#sanity checks
-	check="`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`"
+	check="`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`"
 	if [[ "$check" != "" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
 		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
@@ -981,10 +989,11 @@ zrep_init(){
 	setfsconfigs $srcfs $desthost $destfs
 
 	#setfsconfigs may do some "smarts" to adjust value, so get it again.
-	destfs=`zfs get -H -o value -s local ${ZREPTAG}:dest-fs $srcfs`
+	# yes only check for LOCAL this time. Paranoia....
+	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
 
 	#get this for later
-	mountpoint=`zfs get -H -o value -s local mountpoint $srcfs`
+	mountpoint=`$ZFSGETLVAL mountpoint $srcfs`
 
 	if (( Z_HAS_REC_O )) ; then
 		READONLYPROP="-o readonly=on"
@@ -1169,8 +1178,8 @@ zrep_sentsync(){
 	fi
 
 	typeset desthost destfs
-	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
-	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
+	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
 
 	typeset	senttimeprop="`_gensentprop`"
 
@@ -1283,7 +1292,7 @@ _snapandsync(){
 
 
 
-	#srchost=`$ZFSGETLVAL ${ZREPTAG}:src-host $srcfs`
+	#srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $srcfs`
 	#if [[ "$srchost" != "$Z_LOCAL_HOST" ]] ; then
 	#	zrep_errquit _sync: We are not master for $srcfs
 	#fi
@@ -1401,8 +1410,8 @@ zrep_synconly(){
 
 	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for synconly
 
-	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
-	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
+	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
 	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
@@ -1462,8 +1471,8 @@ zrep_sync(){
 
 	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for sync
 
-	desthost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $srcfs`
-	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
+	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
 	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
@@ -1561,8 +1570,8 @@ zrep_refresh(){
 		zrep_errquit Sorry, you cant run refresh on a master mode fs $destfs
 	fi
 
-	srchost=`$ZFSGETLVAL ${ZREPTAG}:src-host $destfs`
-	srcfs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $destfs`
+	srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $destfs`
+	srcfs=`$ZFSGETVAL ${ZREPTAG}:src-fs $destfs`
 
 	zrep_lock_fs $destfs
 	if [[ $? -ne 0 ]] ; then
@@ -1699,7 +1708,7 @@ _expire(){
 	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock on $1
 
 	# Allow propagated values as well as local, for savecount
-	savecount=`zfs get -H -o value ${ZREPTAG}:savecount $1`
+	savecount=`$ZFSGETVAL ${ZREPTAG}:savecount $1`
 	# do not use (()) in case value unset
 	if [[ $savecount < 1 ]] ; then
 		zrep_errquit ${ZREPTAG}:savecount on $1 set to improper value $savecount
@@ -1745,8 +1754,8 @@ _expire(){
 		#otherwise, go expire on remote side as well
 	fi
 
-	remotehost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $1`
-	remotefs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $1`
+	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
 	print Also running expire on $remotehost:$remotefs now...
 	sanity=`zrep_ssh $remotehost $ZFSGETLVAL ${ZREPTAG}:master $remotefs`
 
@@ -1833,8 +1842,8 @@ zrep_failover(){
 
 	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
 
-	remotehost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $fs`
-	remotefs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $fs`
+	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
 
 	print Setting readonly on local $fs, then syncing
 	zfs set readonly=on $fs
@@ -1917,8 +1926,8 @@ zrep_takeover(){
 	fi
 
 
-	remotehost=`zfs get -H -o value ${ZREPTAG}:src-host $fs`
-	remotefs=`zfs get -H -o value ${ZREPTAG}:src-fs $fs`
+	remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
 
 
 	if (( local == 0 )) ; then
