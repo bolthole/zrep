@@ -88,6 +88,11 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # Get a zfs property on fs or snap. Get JUST the value, and only
 # a "locally set" value rather than an inherited one 
 ZFSGETLVAL="zfs get -H -o value -s local"
+# But.. sometimes you want to allow propagated values. like
+# the ones sent via the zrep_init setup
+ZFSGETVAL="zfs get -H -o value"
+
+
 # Work around a bug in gentoo ksh that breaks "ls -l" builtin.
 # Would prefer to just override with _AST_FEATURES, but apparently,
 # that only gets checked when ksh first starts or something
@@ -130,9 +135,11 @@ fi
 # used to have polymorphic assign of ZREP_INC_FLAG here, but had
 # to move it to AFTER checking if -t option used
 
-
-# Capability for this  does not show in usage.
-# So, just tie this to MU6 related check,like HAS_SNAPPROPS
+# full name for this should probably be something like,
+# PROPTYPES_THAT_ZREP_STATUS_CAN_USE. But that's too long :)
+# Not easy to check if property types allow type "received".
+# Ancient systems do not allow it
+# So, just tie this to MU6 related check,like HAS_SNAPPROPS, lower down
 PROPTYPES="local,received" 
 
 
@@ -198,6 +205,7 @@ fi
 if ((!Z_HAS_SNAPPROPS)) ; then
 	PROPTYPES="local"
 fi
+
 rm $zrep_checkfile
 
 

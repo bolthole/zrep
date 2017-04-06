@@ -33,8 +33,8 @@ zrep_failover(){
 
 	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
 
-	remotehost=`$ZFSGETLVAL ${ZREPTAG}:dest-host $fs`
-	remotefs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $fs`
+	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
 
 	print Setting readonly on local $fs, then syncing
 	zfs set readonly=on $fs
@@ -117,8 +117,8 @@ zrep_takeover(){
 	fi
 
 
-	remotehost=`$ZFSGETLVAL ${ZREPTAG}:src-host $fs`
-	remotefs=`$ZFSGETLVAL ${ZREPTAG}:src-fs $fs`
+	remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
 
 
 	if (( local == 0 )) ; then
