@@ -499,7 +499,7 @@ zrep_refresh(){
 		  "zfs recv $force $destfs"
 	else
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
-		  eval ${Z_F_IN} zfs recv  $force $destfs
+		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
