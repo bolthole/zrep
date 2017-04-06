@@ -139,7 +139,7 @@ fi
 # to move it to AFTER checking if -t option used
 
 # full name for this should probably be something like,
-# PROPTYPES_THAT_ZREP_STATUS_CAN_USE. But that's too long :)
+# PROPTYPES_THAT_ZREP_STATUS_AND_LIST_CAN_USE. But that's too long :)
 # Not easy to check if property types allow type "received".
 # Ancient systems do not allow it
 # So, just tie this to MU6 related check,like HAS_SNAPPROPS, lower down
