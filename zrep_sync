@@ -447,7 +447,7 @@ zrep_sync(){
 #
 zrep_refresh(){
 	typeset srcfs destfs desthost newsnap newseq master
-	typesetf force
+	typeset force
 
 	if [[ "$1" == "-f" ]] ; then
 		force=-F
