@@ -90,13 +90,16 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # and then internal utilities such as locking functions.
 
 
-# This thing is so long and ugly, this is just an internal convenience
+# zfs get syntax is so long and ugly, this is just an internal convenience
 # Get a zfs property on fs or snap. Get JUST the value, and only
 # a "locally set" value rather than an inherited one 
 ZFSGETLVAL="zfs get -H -o value -s local"
 # But.. sometimes you want to allow propagated values. like
 # the ones sent via the zrep_init setup
 ZFSGETVAL="zfs get -H -o value"
+#  **warning** !!
+# $ZFSGETLVAL returns "" on value not set. However,
+# $ZFSGETVAL  returns "-" on value not set. Grrr @zfs writers.
 
 
 # Work around a bug in gentoo ksh that breaks "ls -l" builtin.
@@ -873,7 +876,7 @@ _clear(){
 clearquit(){
 	remhost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
 	remfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
-	if [[ $? -eq 0 ]] && [[ "$remhost" != "" ]] && [[ "$remfs" != "" ]]; then
+	if [[ $? -eq 0 ]] && [[ "$remhost" != "-" ]] && [[ "$remfs" != "-" ]]; then
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
 
@@ -958,7 +961,7 @@ zrep_init(){
 
 	#sanity checks
 	check="`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`"
-	if [[ "$check" != "" ]] ; then
+	if [[ "$check" != "-" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
 		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
 		if [[ "$check" != "" ]] ; then
@@ -1412,7 +1415,7 @@ zrep_synconly(){
 
 	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
@@ -1473,7 +1476,7 @@ zrep_sync(){
 
 	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
