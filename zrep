@@ -79,6 +79,13 @@ ZREPTAG=${ZREPTAG:-zrep}
 # If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
+# If you wish to add a suffix to the detected local hostname, add it here.
+# This is especially useful if you want to run the replication over a
+# second network interface with possibly even a dedicated switch.
+# You could then use a separate local subnet and add e.g. all hostnames
+# with an "-int" suffix to DNS.
+#Z_LOCAL_HOST_SUFFIX=-int
+
 
 
 #########################################################################
@@ -117,6 +124,7 @@ if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 else
 	Z_LOCAL_HOST=`uname -n`
 	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
+	Z_LOCAL_HOST="${Z_LOCAL_HOST}${Z_LOCAL_HOST_SUFFIX:}"
 fi
 
 if [[ "$ZREP_R" == "-R" ]] ; then
