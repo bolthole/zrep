@@ -228,13 +228,20 @@ _sync(){
 
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
+	#
+	# As a workaround for the "destination ... has been modified" problem, we are
+	# using 'zfs recv -F' in order to get a clean state on the receiving side. See:
+	# http://list.zfsonlinux.org/pipermail/zfs-discuss/2015-June/022565.html
+	# https://github.com/zfsonlinux/zfs/issues/3490
+	# This might be a ZFS on Linux only issue, though.
+	#
 	if [[ "$BBCP" != "" ]] ; then
 	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
-		   "$desthost:zfs recv $destfs"
+		   "$desthost:zfs recv -F $destfs"
 	else
 		eval zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
-		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
+		   zrep_ssh $desthost "${Z_F_IN} zfs recv -F $destfs"
 	fi
 
 	# I rename this to _unsent rather than just delete, in case people are using zrep

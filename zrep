@@ -79,6 +79,13 @@ ZREPTAG=${ZREPTAG:-zrep}
 # If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
+# If you wish to add a suffix to the detected local hostname, add it here.
+# This is especially useful if you want to run the replication over a
+# second network interface with possibly even a dedicated switch.
+# You could then use a separate local subnet and add e.g. all hostnames
+# with an "-int" suffix to DNS.
+#Z_LOCAL_HOST_SUFFIX=-int
+
 
 
 #########################################################################
@@ -117,6 +124,7 @@ if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 else
 	Z_LOCAL_HOST=`uname -n`
 	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
+	Z_LOCAL_HOST="${Z_LOCAL_HOST}${Z_LOCAL_HOST_SUFFIX:}"
 fi
 
 if [[ "$ZREP_R" == "-R" ]] ; then
@@ -556,7 +564,7 @@ list_verbose(){
 		# match these 'source' types. So "grep zrep:" is not
 		# neccessary. Although we may pick up other user-set values,
 		# but that is not neccessarily a bad thing
-	zfs get -H -o property,value -s $PROPTYPES all $1
+	zfs get -H -o property,value -s $PROPTYPES all $1 | sort
 	print "last snapshot synced: `getlastsnapsent $1`"
 
 }
@@ -942,6 +950,7 @@ setfsconfigs(){
 	zfs set ${ZREPTAG}:dest-fs=$destfs		$fsname
 	zfs set ${ZREPTAG}:dest-host=$desthost		$fsname
 	zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$fsname
+	zfs set ${ZREPTAG}:orig-host=$Z_LOCAL_HOST	$fsname
 }
 
 
@@ -1061,7 +1070,8 @@ zrep_init(){
 		zrep_ssh $desthost zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-fs=$destfs $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-host=$desthost $destfs
-		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:orig-host=$Z_LOCAL_HOST $destfs
 
 	fi
 
@@ -1358,13 +1368,20 @@ _sync(){
 
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
+	#
+	# As a workaround for the "destination ... has been modified" problem, we are
+	# using 'zfs recv -F' in order to get a clean state on the receiving side. See:
+	# http://list.zfsonlinux.org/pipermail/zfs-discuss/2015-June/022565.html
+	# https://github.com/zfsonlinux/zfs/issues/3490
+	# This might be a ZFS on Linux only issue, though.
+	#
 	if [[ "$BBCP" != "" ]] ; then
 	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
-		   "$desthost:zfs recv $destfs"
+		   "$desthost:zfs recv -F $destfs"
 	else
 		eval zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
-		   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
+		   zrep_ssh $desthost "${Z_F_IN} zfs recv -F $destfs"
 	fi
 
 	# I rename this to _unsent rather than just delete, in case people are using zrep
