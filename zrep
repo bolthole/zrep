@@ -873,7 +873,7 @@ _clear(){
 clearquit(){
 	remhost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
 	remfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
-	if [[ $? -eq 0 ]] && [[ "$remhost" != "" ]] && [[ "$remfs" != "" ]]; then
+	if [[ $? -eq 0 ]] && [[ "$remhost" != "-" ]] && [[ "$remfs" != "-" ]]; then
 		zrep_ssh $remhost zfs destroy -r $remfs
 	fi
 
@@ -958,7 +958,7 @@ zrep_init(){
 
 	#sanity checks
 	check="`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`"
-	if [[ "$check" != "" ]] ; then
+	if [[ "$check" != "-" ]] ; then
 		print "$srcfs is at least partially configured by zrep"
 		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
 		if [[ "$check" != "" ]] ; then
@@ -1412,7 +1412,7 @@ zrep_synconly(){
 
 	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
@@ -1473,7 +1473,7 @@ zrep_sync(){
 
 	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "" ]] || [[ "$destfs" == "" ]];
+	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
 	then
 		zrep_errquit Problem getting zrep properties for fs $srcfs
 	fi
