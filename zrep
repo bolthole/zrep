@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.7
+ZREP_VERSION=1.7.1
 
 ######## start of included files from zrep_top here
 ########### zrep_vars
@@ -145,7 +145,7 @@ fi
 # to move it to AFTER checking if -t option used
 
 # full name for this should probably be something like,
-# PROPTYPES_THAT_ZREP_STATUS_CAN_USE. But that's too long :)
+# PROPTYPES_THAT_ZREP_STATUS_AND_LIST_CAN_USE. But that's too long :)
 # Not easy to check if property types allow type "received".
 # Ancient systems do not allow it
 # So, just tie this to MU6 related check,like HAS_SNAPPROPS, lower down
@@ -1281,7 +1281,7 @@ synctosnap(){
 	
 }
 
-# Usage: _snapandsync  fs desthost destfs
+# Usage: _snapandsync  [-f] fs desthost destfs
 # internal routine called by zrep_sync and zrep_failover,
 # to do an incremental send.
 # You must hold filesystem lock before calling this
@@ -1291,6 +1291,12 @@ synctosnap(){
 # Sets our 'synced' marker on it as well.
 #
 _snapandsync(){
+	typeset force
+	if [[ "$1" == "-f" ]] ; then
+		force=-f
+		shift
+	fi
+
 	typeset srcfs=$1 desthost=$2 destfs=$3
 
 	typeset sentsnap newsnap snapname
@@ -1317,13 +1323,19 @@ _snapandsync(){
 		zrep_errquit zrep_sync could not create new snapshot for $srcfs
 	fi
 
-	_sync $srcfs $desthost $destfs $sentsnap $newsnap
+	_sync $force $srcfs $desthost $destfs $sentsnap $newsnap
 
 }
 
 # called by _snapandsync, and also zrep_synconly
-# 	Usage: sourcefs destinationhost destinationfs (lastsent (newsnap))
+# Usage: _sync [-f] sourcefs destinationhost destinationfs (lastsent (newsnap))
 _sync(){
+	typeset force
+	if [[ "$1" == "-f" ]] ; then
+		force=-F
+		shift
+	fi
+
 	typeset srcfs=$1 desthost=$2 destfs=$3
 	typeset lastsent=$4 newsnap=$5
 	typeset snapname
@@ -1370,10 +1382,10 @@ _sync(){
 	if [[ "$BBCP" != "" ]] ; then
 	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
-		   "$desthost:zfs recv -F $destfs"
+		   "$desthost:zfs recv $force $destfs"
 	else
 		eval zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
-		   zrep_ssh $desthost "${Z_F_IN} zfs recv -F $destfs"
+		   zrep_ssh $desthost "${Z_F_IN} zfs recv $force $destfs"
 	fi
 
 	# I rename this to _unsent rather than just delete, in case people are using zrep
@@ -1444,16 +1456,22 @@ zrep_synconly(){
 
 #zrep_sync
 # make a new snapshot and copy it over.
-# Usage: zrep_sync [-q quiettime] (all|fs1 .. fsX)
+# Usage: zrep_sync [-f] [-q quiettime] (all|fs1 .. fsX)
 # See workflow.txt 
 # Will call synctosnap if a snapshot is given instead of fsname
 # Normally, will bail out if another instance of zrep holds lock.
-#   -q option says to check last update time of locked filesystems.
+# -q option says to check last update time of locked filesystems.
 #   If sync more recent than given quiettime, then quietly ignore
 #   
 zrep_sync(){
 	typeset srcfs destfs desthost sentsnap newsnap
-	typeset quiettime=0
+	typeset quiettime=0 force
+
+	if [[ "$1" == "-f" ]] ; then
+		force=-f
+		shift
+	fi
+
 
 	if [[ "$1" == "-q" ]] ; then
 		quiettime="$2"
@@ -1522,7 +1540,7 @@ zrep_sync(){
 		fi
 	fi
 
-	_snapandsync $srcfs $desthost $destfs
+	_snapandsync $force $srcfs $desthost $destfs
 
 
 	# Make this message match what zrep_expire uses..
@@ -1568,6 +1586,12 @@ zrep_sync(){
 #
 zrep_refresh(){
 	typeset srcfs destfs desthost newsnap newseq master
+	typeset force
+
+	if [[ "$1" == "-f" ]] ; then
+		force=-F
+		shift
+	fi
 
 	# for now, just handle ONE arg, not multiple fs list
 
@@ -1611,10 +1635,10 @@ zrep_refresh(){
 
 	if [[ "$BBCP" != "" ]] ; then
 		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
-		  "zfs recv $destfs"
+		  "zfs recv $force $destfs"
 	else
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
-		  eval ${Z_F_IN} zfs recv $destfs
+		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
@@ -2099,7 +2123,7 @@ case "$1" in
 		shift
 		zrep_snaponly "$@"
 		;;
-	sync|-S)
+	sync|-S)  #remember, this is inverse of refresh
 		shift
 		zrep_sync "$@"
 		;;
