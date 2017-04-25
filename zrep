@@ -130,6 +130,11 @@ if [[ "$MBUFFER" != "" ]] ; then
 	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
 fi
 
+# I HATE having to use a global for this.
+# However, there is apparently a bug in typeset behaviour
+# introduced in ksh93. UGHHH.
+#ZREP_FORCE="-f"
+
 # Sneaky vars to avoid having to use if clauses in the core code
 # HOWEVER! Note that ksh doesnt seem to evaluate pipe symbols when normaly
 # expanded in a command line. So, have to use 'eval' to get them to register
@@ -842,7 +847,7 @@ makesnap(){
 ##  (NOT delete it)
 ## Will remove zrep snapshots and zfs zrep: properties
 zrep_clear(){
-	if [[ "$1" == "-f" ]] ; then
+	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		print "WARNING: Removing all zrep configs and snapshots from $2"
 		_clear $2
 		return
@@ -1279,7 +1284,7 @@ synctosnap(){
 	
 }
 
-# Usage: _snapandsync  [-f] fs desthost destfs
+# Usage: _snapandsync  fs desthost destfs
 # internal routine called by zrep_sync and zrep_failover,
 # to do an incremental send.
 # You must hold filesystem lock before calling this
@@ -1289,12 +1294,6 @@ synctosnap(){
 # Sets our 'synced' marker on it as well.
 #
 _snapandsync(){
-	typeset force
-	if [[ "$1" == "-f" ]] ; then
-		force=-f
-		shift
-	fi
-
 	typeset srcfs=$1 desthost=$2 destfs=$3
 
 	typeset sentsnap newsnap snapname
@@ -1321,15 +1320,15 @@ _snapandsync(){
 		zrep_errquit zrep_sync could not create new snapshot for $srcfs
 	fi
 
-	_sync $force $srcfs $desthost $destfs $sentsnap $newsnap
+	_sync $srcfs $desthost $destfs $sentsnap $newsnap
 
 }
 
 # called by _snapandsync, and also zrep_synconly
-# Usage: _sync [-f] sourcefs destinationhost destinationfs (lastsent (newsnap))
+# Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 _sync(){
 	typeset force
-	if [[ "$1" == "-f" ]] ; then
+	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		force=-F
 		shift
 	fi
@@ -1456,13 +1455,7 @@ zrep_synconly(){
 #   
 zrep_sync(){
 	typeset srcfs destfs desthost sentsnap newsnap
-	typeset quiettime=0 force
-
-	if [[ "$1" == "-f" ]] ; then
-		force=-f
-		shift
-	fi
-
+	typeset quiettime=0
 
 	if [[ "$1" == "-q" ]] ; then
 		quiettime="$2"
@@ -1531,7 +1524,7 @@ zrep_sync(){
 		fi
 	fi
 
-	_snapandsync $force $srcfs $desthost $destfs
+	_snapandsync $srcfs $desthost $destfs
 
 
 	# Make this message match what zrep_expire uses..
@@ -1579,7 +1572,7 @@ zrep_refresh(){
 	typeset srcfs destfs desthost newsnap newseq master
 	typeset force
 
-	if [[ "$1" == "-f" ]] ; then
+	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		force=-F
 		shift
 	fi
@@ -2095,7 +2088,11 @@ case "$1" in
 		;;
 	clear)
 		shift
-		# only actually allows ONE  fs, but with optional -f
+		# only actually allows ONE fs
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_clear "$@"
 		;;
 	expire|-e)
@@ -2116,6 +2113,10 @@ case "$1" in
 		;;
 	sync|-S)  #remember, this is inverse of refresh
 		shift
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_sync "$@"
 		;;
 	synconly)
@@ -2124,6 +2125,10 @@ case "$1" in
 		;;
 	refresh)	# yes keep this in this order
 		shift
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_refresh "$@"
 		;;
 	status|-s)

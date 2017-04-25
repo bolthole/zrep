@@ -177,7 +177,7 @@ makesnap(){
 ##  (NOT delete it)
 ## Will remove zrep snapshots and zfs zrep: properties
 zrep_clear(){
-	if [[ "$1" == "-f" ]] ; then
+	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		print "WARNING: Removing all zrep configs and snapshots from $2"
 		_clear $2
 		return

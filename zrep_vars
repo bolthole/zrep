@@ -124,6 +124,11 @@ if [[ "$MBUFFER" != "" ]] ; then
 	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
 fi
 
+# I HATE having to use a global for this.
+# However, there is apparently a bug in typeset behaviour
+# introduced in ksh93. UGHHH.
+#ZREP_FORCE="-f"
+
 # Sneaky vars to avoid having to use if clauses in the core code
 # HOWEVER! Note that ksh doesnt seem to evaluate pipe symbols when normaly
 # expanded in a command line. So, have to use 'eval' to get them to register

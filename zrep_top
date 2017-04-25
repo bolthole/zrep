@@ -91,7 +91,11 @@ case "$1" in
 		;;
 	clear)
 		shift
-		# only actually allows ONE  fs, but with optional -f
+		# only actually allows ONE fs
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_clear "$@"
 		;;
 	expire|-e)
@@ -112,6 +116,10 @@ case "$1" in
 		;;
 	sync|-S)  #remember, this is inverse of refresh
 		shift
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_sync "$@"
 		;;
 	synconly)
@@ -120,6 +128,10 @@ case "$1" in
 		;;
 	refresh)	# yes keep this in this order
 		shift
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_refresh "$@"
 		;;
 	status|-s)
