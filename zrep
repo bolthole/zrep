@@ -421,6 +421,9 @@ zrep_ssh(){
 		localhost|$Z_LOCAL_HOST)
 			ssh_cmd="eval"
 			;;
+		127.0.0.1|$Z_LOCAL_HOST)
+			ssh_cmd=""
+			;;
 		*)
 			# by default, DEBUG doesnt get passed through ssh
 			ssh_cmd="$SSH $1 DEBUG=${DEBUG}"
