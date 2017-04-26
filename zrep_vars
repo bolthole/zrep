@@ -414,13 +414,23 @@ zrep_ssh(){
 	case "$1" in
 		localhost|$Z_LOCAL_HOST)
 			ssh_cmd="eval"
+			shift
 			;;
 		*)
-			# by default, DEBUG doesnt get passed through ssh
-			ssh_cmd="$SSH $1 DEBUG=${DEBUG}"
+			if [[ "$2" == "$ZREP_PATH" ]] && [[ "$DEBUG" != "" ]]
+			then
+				#okay yes this is horrible. sigh.
+				
+				ssh_cmd="$SSH $1 $ZREP_PATH -D"
+				shift
+				shift
+			else
+				ssh_cmd="$SSH $1"
+				shift
+			fi
 			;;
 	esac
-	shift
+
 	$ssh_cmd "$@"
 }
 
