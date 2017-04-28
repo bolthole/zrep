@@ -195,7 +195,6 @@ _sync(){
 	typeset force
 	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		force=-F
-		shift
 	fi
 
 	typeset srcfs=$1 desthost=$2 destfs=$3
@@ -311,7 +310,7 @@ zrep_synconly(){
 
 #zrep_sync
 # make a new snapshot and copy it over.
-# Usage: zrep_sync [-f] [-q quiettime] (all|fs1 .. fsX)
+# Usage: zrep_sync [-q quiettime] (all|fs1 .. fsX)
 # See workflow.txt 
 # Will call synctosnap if a snapshot is given instead of fsname
 # Normally, will bail out if another instance of zrep holds lock.
@@ -439,7 +438,6 @@ zrep_refresh(){
 
 	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		force=-F
-		shift
 	fi
 
 	# for now, just handle ONE arg, not multiple fs list
