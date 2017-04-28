@@ -4,7 +4,7 @@
 ZREP_VERSION=1.7.1
 
 ######## start of included files from zrep_top here
-########### zrep_vars
+########### File: zrep_vars
 
 # This should basically be included as common vars before all zrep stuff.
 # It contains all 'constant' definitions, as well as a few crucial
@@ -467,7 +467,7 @@ _errprint(){
 	print $@ >/dev/fd/2
 
 }
-###### zrep_status
+###### File: zrep_status
 
 # be sure to have included zrep_vars
 
@@ -678,7 +678,7 @@ zrep_list_snaps(){
 	
 }
 
-################ zrep_snap
+################ File: zrep_snap
 # be sure to have included zrep_vars
 
 # This file contains routines related to 
@@ -1143,7 +1143,7 @@ zrep_changeconfig(){
 
 
 
-##### zrep_sync
+##### File: zrep_sync
 
 # contains meat of the "sync" level operations, which deal with
 # data transfer.
@@ -1837,7 +1837,7 @@ zrep_expire()
 	done
 	
 }
-#### zrep_failover
+#### File: zrep_failover
 
 
 

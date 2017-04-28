@@ -1,4 +1,4 @@
-########### zrep_vars
+########### File: zrep_vars
 
 # This should basically be included as common vars before all zrep stuff.
 # It contains all 'constant' definitions, as well as a few crucial
