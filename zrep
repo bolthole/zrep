@@ -417,27 +417,38 @@ zrep_errquit(){
 # Usage:  zrep_ssh desthost  commands_for_ssh go_here
 zrep_ssh(){
 	typeset ssh_cmd
+
 	case "$1" in
 		localhost|$Z_LOCAL_HOST)
 			ssh_cmd="eval"
 			shift
-			;;
-		*)
-			if [[ "$2" == "$ZREP_PATH" ]] && [[ "$DEBUG" != "" ]]
-			then
-				#okay yes this is horrible. sigh.
-				
-				ssh_cmd="$SSH $1 $ZREP_PATH -D"
-				shift
-				shift
-			else
-				ssh_cmd="$SSH $1"
-				shift
-			fi
-			;;
+			$ssh_cmd "$@"
+			return
+		;;
 	esac
+	
+	if [[ "$2" == "$ZREP_PATH "* ]] && [[ "$DEBUG" != "" ]]
+	then
+		#okay yes this is horrible. sigh.
+		#we normally go to great lengths to preserve ssh arg as single quoted string,
+		# to identically match passed in arg quoting.
+		#but this next line undoes that
+	    
+		set -- $*
 
+		ssh_cmd="$SSH $1 $ZREP_PATH -D"
+		shift
+		shift
+		$ssh_cmd "$@"
+
+		return
+	fi
+
+	ssh_cmd="$SSH $1"
+	shift
 	$ssh_cmd "$@"
+	return
+
 }
 
 zrep_gettimeinseconds(){
