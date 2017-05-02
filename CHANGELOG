@@ -129,3 +129,6 @@ version 1.7
 
 version 1.7.1
 	bugfix for 1.7, haha
+
+version 1.7.2
+	bugfix release: make -f and debug options work fully
