@@ -74,6 +74,10 @@ ZREPTAG=${ZREPTAG:-zrep}
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 
+# Hidden var, that isnt really meant to be used directly.
+# It gets set if you use "zrep sync -c". 
+# But you could theoretically set this directly instead if you prefer
+#ZREP_CHANGEDONLY=yes
 
 #########################################################################
 #########################################################################
