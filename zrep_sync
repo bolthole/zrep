@@ -189,6 +189,31 @@ _snapandsync(){
 
 }
 
+#
+# called by _sync
+# Check if there have been changes between two snaps
+# If no, then return 0 == true [no changes ]
+#
+_sync_nochanges(){
+	typeset changecheck tmpfile="/tmp/zrep.$$.c"
+
+	rm -f $tmpfile
+	zfs diff -H $1 $2 >$tmpfile
+	if [[ $? -ne 0 ]] ; then
+		echo ERROR: zfs diff unrecognized when check mode specified
+		rm -f $tmpfile
+		return 1
+	fi
+	if test -s $tmpfile ; then
+		rm -f $tmpfile
+		return 1
+	fi
+
+	_debugprint sync_nochanges updating $1 and returning true
+	rm -f $tmpfile
+	return 0
+}
+
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 _sync(){
@@ -223,10 +248,26 @@ _sync(){
 	fi
 
 	snapname=${newsnap#*@}
-
-	print sending $newsnap to $desthost:$destfs
 	typeset timeinsec=`zrep_gettimeinseconds`
 	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
+
+	# Check if changes since last sync
+	if [[ "$ZREP_CHANGEDONLY" != "" ]] ; then
+		if _sync_nochanges $lastsent $newsnap $sendtimeprop ; then
+		_debugprint "_sync updating timestamp but NOT doing sync since no change"
+		if (( Z_HAS_SNAPPROPS )) ; then
+			zfs set $senttimeprop  ${lastsent}
+		else
+			#note that this is only for old-ZFS compatibility.
+			# We dont really want to use this style if possible!
+			zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
+		fi
+
+		return 0
+		fi
+	fi
+
+	print sending $newsnap to $desthost:$destfs
 
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
 	# So we dont do that usually
@@ -320,6 +361,11 @@ zrep_synconly(){
 zrep_sync(){
 	typeset srcfs destfs desthost sentsnap newsnap
 	typeset quiettime=0
+
+	if [[ "$1" == "-c" ]] ; then
+		export ZREP_CHANGEDONLY="yes"
+		shift
+	fi
 
 	if [[ "$1" == "-q" ]] ; then
 		quiettime="$2"
