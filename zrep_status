@@ -43,7 +43,6 @@ zrep_status(){
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
 			typeset sentseconds=`zfs get -H -o value ${ZREPTAG}:sent $lastsnap`
-			echo SENT $sentseconds
 			date=`perl -e 'use POSIX qw(strftime); print strftime "%Y/%m/%d-%H:%M:%S",localtime('$sentseconds');' `
 			vdate=${date%:*}
 
