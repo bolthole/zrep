@@ -41,7 +41,17 @@ zrep_status(){
 		if [[ "$lastsnap" == "" ]] ; then
 			date="[NEVER]"
 		else
+			if (( Z_HAS_SNAPPROPS )) ; then
+			typeset sentseconds=`zfs get -H -o value ${ZREPTAG}:sent $lastsnap`
+			echo SENT $sentseconds
+			date=`perl -e 'use POSIX qw(strftime); print strftime "%Y/%m/%d-%H:%M:%S",localtime('$sentseconds');' `
+			vdate=${date%:*}
+
+			else
+
 			date=`zfs get -H -o value creation $lastsnap`
+			vdate=${date#????}
+			fi
 		fi
 		if ((printall)) && ((verbose)) ; then
 			# If we are printing out  ALL filesystems,
@@ -58,7 +68,7 @@ zrep_status(){
 
 		if ((verbose)) ; then
 			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
-			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "${date#????}"
+			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "$vdate"
 		else
 			printf "%-47s" $srcfs
 			print "last synced $date"
