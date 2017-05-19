@@ -149,6 +149,31 @@ synctosnap(){
 	
 }
 
+#
+# called by _sync
+# Check if there have been changes between two snaps
+# If no, then return 0 == true [no changes ]
+#
+_sync_nochanges(){
+	typeset changecheck tmpfile="/tmp/zrep.$$.c"
+
+	rm -f $tmpfile
+	zfs diff -H $1 $2 >$tmpfile
+	if [[ $? -ne 0 ]] ; then
+		echo ERROR: zfs diff unrecognized when check mode specified
+		rm -f $tmpfile
+		return 1
+	fi
+	if test -s $tmpfile ; then
+		rm -f $tmpfile
+		return 1
+	fi
+
+	_debugprint sync_nochanges updating $1 and returning true
+	rm -f $tmpfile
+	return 0
+}
+
 # Usage: _snapandsync  fs desthost destfs
 # internal routine called by zrep_sync and zrep_failover,
 # to do an incremental send.
@@ -187,31 +212,6 @@ _snapandsync(){
 
 	_sync $srcfs $desthost $destfs $sentsnap $newsnap
 
-}
-
-#
-# called by _sync
-# Check if there have been changes between two snaps
-# If no, then return 0 == true [no changes ]
-#
-_sync_nochanges(){
-	typeset changecheck tmpfile="/tmp/zrep.$$.c"
-
-	rm -f $tmpfile
-	zfs diff -H $1 $2 >$tmpfile
-	if [[ $? -ne 0 ]] ; then
-		echo ERROR: zfs diff unrecognized when check mode specified
-		rm -f $tmpfile
-		return 1
-	fi
-	if test -s $tmpfile ; then
-		rm -f $tmpfile
-		return 1
-	fi
-
-	_debugprint sync_nochanges updating $1 and returning true
-	rm -f $tmpfile
-	return 0
 }
 
 # called by _snapandsync, and also zrep_synconly
