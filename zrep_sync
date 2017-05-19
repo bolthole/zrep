@@ -151,16 +151,16 @@ synctosnap(){
 
 #
 # called by _sync
-# Check if there have been changes between two snaps
+# Check if there have been changes since specified snap
 # If no, then return 0 == true [no changes ]
 #
 _sync_nochanges(){
 	typeset changecheck tmpfile="/tmp/zrep.$$.c"
 
 	rm -f $tmpfile
-	zfs diff -H $1 $2 >$tmpfile
+	zfs diff -H $1  >$tmpfile
 	if [[ $? -ne 0 ]] ; then
-		echo ERROR: zfs diff unrecognized when check mode specified
+		_errprint _sync_nochanges: zfs diff command unrecognized
 		rm -f $tmpfile
 		return 1
 	fi
@@ -169,7 +169,7 @@ _sync_nochanges(){
 		return 1
 	fi
 
-	_debugprint sync_nochanges updating $1 and returning true
+	_debugprint sync_nochanges did not find any changes
 	rm -f $tmpfile
 	return 0
 }
@@ -203,6 +203,23 @@ _snapandsync(){
 	if [[ "$sentsnap" == "" ]] ; then
 		print zrep_sync could not find sent snap for $srcfs. 
 		zrep_errquit You must initialize $srcfs for zrep
+	fi
+
+	if [[ "$ZREP_CHANGEDONLY" != "" ]] ; then
+		if _sync_nochanges $sentsnap ; then
+		_debugprint No changes found in $srcfs. Updating timestamp only
+		typeset timeinsec=`zrep_gettimeinseconds`
+		typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
+
+		if (( Z_HAS_SNAPPROPS )) ; then
+			zfs set $senttimeprop  ${sentsnap}
+		else
+			#note that this is only for old-ZFS compatibility.
+			# We dont really want to use this style if possible!
+			zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
+		fi
+		return 0
+		fi
 	fi
 
 	newsnap=`makesnap $srcfs`
@@ -250,22 +267,6 @@ _sync(){
 	snapname=${newsnap#*@}
 	typeset timeinsec=`zrep_gettimeinseconds`
 	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
-
-	# Check if changes since last sync
-	if [[ "$ZREP_CHANGEDONLY" != "" ]] ; then
-		if _sync_nochanges $lastsent $newsnap $sendtimeprop ; then
-		_debugprint "_sync updating timestamp but NOT doing sync since no change"
-		if (( Z_HAS_SNAPPROPS )) ; then
-			zfs set $senttimeprop  ${lastsent}
-		else
-			#note that this is only for old-ZFS compatibility.
-			# We dont really want to use this style if possible!
-			zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
-		fi
-
-		return 0
-		fi
-	fi
 
 	print sending $newsnap to $desthost:$destfs
 
