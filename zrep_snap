@@ -264,11 +264,16 @@ setfsconfigs(){
 			:
 			;;
 		*)
-			# Only the pool name given. Let's make it explicit.
-			# Sadly this wont work if intermediary root
-			# is given. which is technically legal.
-			typeset basefs=${fsname##*/}
-			destfs=$destfs/$basefs
+			# Only the pool name given.
+			# With our curent workflow, that can ONLY WORK
+			# if recent versions of ZFS are in use.
+			if (( $Z_HAS_REC_U )) ; then
+				print WARNING: forcing override sync to top level pool $desthost:$destfs
+				print Not using a usual sub-filesystem
+				sleep 5
+			else
+				zrep_errquit older zfs version, cannot initialize top level pool
+			fi
 			;;
 	esac
 
