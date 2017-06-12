@@ -150,6 +150,10 @@ case "$1" in
 		;;
 	failover)
 		shift
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
 		zrep_failover "$@"
 		;;
 	takeover)
