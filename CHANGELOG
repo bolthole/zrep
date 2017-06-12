@@ -132,3 +132,6 @@ version 1.7.1
 
 version 1.7.2
 	bugfix release: make -f and debug options work fully
+
+version 1.7.3
+	enabled -f for failover
