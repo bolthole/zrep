@@ -104,7 +104,7 @@ ZFSGETVAL="zfs get -H -o value"
 # Would prefer to just override with _AST_FEATURES, but apparently,
 # that only gets checked when ksh first starts or something
 # Maybe use getconf itself somehow, if safe?
-if getconf PATH_RESOLVE 2> /dev/null ; then
+if getconf PATH_RESOLVE > /dev/null 2>&1 ; then
 	LS=/bin/ls
 else
 	LS=ls
