@@ -882,6 +882,10 @@ makesnap(){
 ## Will remove zrep snapshots and zfs zrep: properties
 zrep_clear(){
 
+	if [[ "$1" == "" ]] ; then
+		zrep_errquit clear command requires an argument
+	fi
+
 	print "WARNING: Removing all zrep configs and snapshots from $1"
 	print " (for TAG=${ZREPTAG})"
 
