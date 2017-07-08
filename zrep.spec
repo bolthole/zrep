@@ -34,9 +34,9 @@ will conveniently handle all the details of
 
 %prep
 # master version
-%setup -q -n %{name}-master
+#%setup -q -n %{name}-master
 # release version
-#%setup -q -n %{name}-%{version}
+%setup -q -n %{name}-%{version}
 
 %install
 rm -rf ${RPM_BUILD_ROOT}
