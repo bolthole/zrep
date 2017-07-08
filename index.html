@@ -1,0 +1,250 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN"> 
+<HTML>
+<HEAD>
+<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=iso-8859-1">
+
+<LINK HREF="/logo.css" REL="stylesheet" TYPE="text/css">
+<STYLE TYPE="text/css">
+<!--
+body	{ 
+	font: 14px Verdana, Arial,sans-serif;
+	}
+
+--> </!-->
+</STYLE>
+
+<title> zrep - zfs based replication and failover system</title>
+
+<META name="keywords"
+content="zfs,failover,replication,sync">
+
+</HEAD>
+
+<BODY bgcolor="#ffffff" text="#000000" link="#00a0a0" vlink="#505050" alink="#ffffff">
+
+<H1 ALIGN=center>ZREP ZFS replication and failover</H1>
+
+<span title="Pixxel the ferret, courtesy of the Ferret Photo Gallery, http://www.ferretcentral.org/gallery/">
+<div id=logobox>
+<!-- This gives us an invisible box over our "background" logo
+     which then can allow for the "span" mouseover to work -->
+</div>
+</span>
+
+<div id="contents">
+<!-- This is for entire rest of page -->
+
+This is the home for "zrep", a robust yet easy to use ZFS based replication
+and failover solution.
+It can also serve as the conduit to create a simple backup hub.
+<br>
+<p>
+<h2>Contents</h2>
+<ul>
+<li><a href="#download">Downloads</a>
+<ul><li><a href="#compatibility">Compatibility</a></ul>
+<li><a href="#what">What is zrep</a>
+<li><a href="#why">Why use zrep</a>
+<li><a href="#overview">Documentation</a>
+<li><a href="#caution">Caution</a>
+<li><a href="#faster">Speed tips</a>
+<li><a href="#source">Source Code</a>
+</ul>
+
+<a name=download></a>
+<h2> Downloads</h2>
+
+<a href="zrep">Download zrep version 1.6.7 </a>, Feb 2017 <br>
+Or alternatively, you can grab 
+<a href="https://raw.githubusercontent.com/bolthole/zrep/master/zrep">the latest dev version</a> 
+directly from its <a href="https://github.com/bolthole/zrep">github project</a>. (the 'latest' may or may not be a stable version, however!)
+<p>
+Note that the download is not an archive, but a single 1000+ line
+shellscript. Just chmod +x zrep, and you are ready to go!
+ <p>
+Zrep has been reported to run on multiple OS's that provide ZFS, including <b>Solaris</b>,
+<b>IllumOS</b>, <b>Linux</b>, and <b>BSD</b> (including FreeNAS, and Nas4Free). 
+
+<P>
+<a name=compatibility></a>
+<B>Compatibility issues</B><br>
+I chose ksh as the interpreter, because it has extra efficiencies with
+builtin functions, and also user written functions.
+Just be sure to run zrep with <b>Real</b> ksh, not an impostor such as pdksh,
+or it may not work properly.<br>
+Similarly, there may be a bug with Gentoo "improved" ksh, which is a
+non-official patch. I have had a report that standard 2012 ksh works, but
+the app-shells/ksh-93.20140625 gentoo ksh may have a problem.<br>
+FreeNAS <a href="https://forums.freenas.org/index.php?threads/zrep-replication-and-failover-script.9966/">may work best</a> using #!/usr/local/bin/ksh93 
+as first line for zrep (or just symlink that to /bin/ksh !)<br>
+If for some reason you want ksh source code, the best place seems to be<br>
+<a href="https://github.com/att/ast">https://github.com/att/ast</a>
+
+<P>
+<B>License</B><br>
+The license for zrep is <a href="LICENSE.txt">available here</a>.
+The short summary is that you are free to use it as much as you like,as
+long as you dont sue me for anything that goes wrong :-)<br>
+If you are really bored, you may also read 
+<a href="https://raw.githubusercontent.com/bolthole/zrep/master/CHANGELOG">the CHANGELOG</a>
+
+For historians, some older versions are still available:
+  <a href="zrep.0.8.4">zrep version 0.8.4 </a>, Oct 17th, 2012 / 
+  <a href="zrep.0.7">zrep version 0.7 </a>, June 29th, 2012
+
+
+<p>
+<a name="what"></a>
+<h2>What is zrep?</h2>
+
+Zrep is an enterprise-grade, single-program solution for handling
+asynchronous, continuous replication of a zfs filesystem, to another
+filesystem.  That filesystem can be on another machine, or on the same
+machine.
+<p>
+It also handles 'failover', as simply as "zrep failover datapool/yourfs".
+This will conveniently handle all the details of 
+<ul>
+<li>Making 'yourfs' be a data destination, rather than a source
+<li>Making 'yourfs' be read-only
+<li>Making the destination fs be "live", and ready to transfer data to
+yourfs
+</ul>
+
+It also has user-friendly status outputs.
+For example:
+<pre>
+# zrep status
+scratch/datasrc                      synced as of Mon Mar 12 13:23 2012
+
+</pre>
+
+<p>
+<a name=why></a>
+<h2>Why use zrep over (z-other-thing)?</h2>
+
+I originally looked around for a pre-existing program that safely handled replication
+<b>and failover</b> of a zfs filesystem, but could not find one. Existing
+programs all seem to be some form of glorified rsync. They are not
+engineered to be run continuously, or safely. They often require a
+considerable amount of knowlege for a sysadmin to configure them well.
+<p>
+In contrast, zrep is designed to be
+<ol>
+<li>Safe (has locking and other sanity checks)
+<li>Easy to use
+<li>Handles "failover" of active filesystem.
+<li>Can be run frequently
+</ol>
+
+zrep can safely be run in a loop, thereby potentially generating
+snap-and-replicate operations as frequently as 1-3 times a minute, and keep
+going safely for many years.
+
+<a name=overview></a>
+<h2> Overview of use, aka Documentation</h2>
+
+If you would like a detailed view of zrep use, I recommend 
+that you read the
+<a href="zrep.documentation.html">zrep documentation page</a>. 
+
+<p>
+If you are in a hurry to just try zrep out, however, a super-trivialized 
+version of how to use it would be:
+<blockquote>
+<pre>
+	zrep init pool/fs desthost destpool/fs
+	# (will create the destination fs!)
+	# Initialize additional fs's with zrep if you wish. Then...
+	while true; do zrep sync all; done
+</pre>
+</blockquote>
+
+After the initial full sync, this will do incremental zfs sends, back to
+back, "forever". (or at least until you hit an error :)
+
+<p>
+For some amount of greater detail, please see the usage message, via 
+"zrep -h"
+<p>
+The one "undocumented feature" you may care about, is that the property
+zrep:savecount controls the number of recent snapshots preserved.
+To change from the default (currently, 5), use
+<pre>
+zfs set zrep:savecount=NEWVAL your/fs/here
+</pre>
+<p>
+There is also a separate <a href="troubleshooting.html">troubleshooting
+page</a>
+
+<a name=caution></a>
+<h2> Caution</h2>
+There is one thing to beware of: Don't try to use zrep on nested
+filesystems, without using the special recursive flag. <br>
+It's okay to use it on<br>
+<pre>
+/pool/fs/here
+</pre>
+However, it is probably a bad idea to try it out of the box on BOTH of
+<pre>
+/pool/fs/here
+/pool/fs/here/too
+</pre>
+
+If you <i>really</i> wish to sync a bunch of ZFS filesystems nested under a master
+filesystem, zrep does now support a recursive flag. See the documentation
+for more details.
+
+
+<a name=faster></a>
+<h2> Faster initialization and throughput</h2>
+If you are planning to do a lot of "initial syncs", and your data is very
+large, you may be interested in looking at these patches to ssh.
+They make it have larger sized TCP windows, and also allow you to disable
+encyption on the transfer, if that helps you:<p>
+
+<a href="http://www.psc.edu/networking/projects/hpn-ssh/">
+http://www.psc.edu/networking/projects/hpn-ssh/</a><p>
+<pre>
+ Some speed results, from local-host testing:
+  using regular scp to regular sshd, got about  20MB/sec 
+  using regular scp to hpn-sshd, got about 30MB/sec
+  using hpc-scp to hpn-sshd, got 150MB/sec
+</pre>
+
+<p>
+Additionally, zrep supports integrating with "mbuffer", or "bbcp".
+Either of which can have a beneficial effect to transfer speeds.
+<p>
+
+It should be noted, however, that generating the data for a "zfs send"
+has speed limits of its own.<br>
+You may want to first time "zfs send your@snapshot >/dev/null", to see
+if optimizing your network throughput is going to be significant.<br>
+Bottom line: unless you're sending from an SSD, and/or sending Terabytes of data,
+it may be best to just stick with SSH.
+
+<a name=source></a>
+<h2> Source Code</h2>
+zrep is a shellscript, so in essence, if you download it, you already have
+"the source".  However, since it is a 
+<a href="/solaris/ksh-largescale.html">large scale script</a> of 2000 lines,
+I actually 'compile' it together from multiple modular files, in a manner 
+similar to other programming languages. I even use 'make' to do so.
+<p>
+If you are a shellscript writer, this may interest you. 
+Feel free to browse around the source directory, which I have now moved
+to a 
+<a href="https://github.com/bolthole/zrep">GitHub repository for zrep</a>
+
+<P>
+<hr>
+Written by:<a href="mailto:phil@bolthole.com">Philip Brown</a>
+<br>
+<a href="http://www.bolthole.com/">Bolthole Top</a> 
+<a href="http://www.bolthole.com/search.html">Search Bolthole.com</a> 
+
+</div>
+
+</BODY>
+</HTML>
