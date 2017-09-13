@@ -114,7 +114,8 @@ case "$1" in
 		;;
 	sentsync)
 		shift
-		zrep_sentsync "$1" #this is a 'something is broken" operation, so make it limited
+		# Note that this will NOT accept multiple snaps, for safety
+		zrep_sentsync "$@" 
 		;;
 	snaponly)
 		shift

@@ -1201,7 +1201,15 @@ _gensentprop(){
 # This only works with newstyle ZFS that allows property setting on snapshots
 # Needs to follow whatever is done in _sync(), after the zfs send
 #
+# Usage:   zrep_syncsync [-L] fs@snap
+#
 zrep_sentsync(){
+	typeset local=0
+	if [[ "$1" == "-L" ]] ; then
+		local=1;
+		shift
+	fi
+
 	typeset srcsnap="$1"
 	typeset srcfs=${srcsnap%@*}
 	typeset snapname=${srcsnap#*@}
@@ -1234,7 +1242,9 @@ zrep_sentsync(){
 
 	typeset	senttimeprop="`_gensentprop`"
 
-	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
+	if ((local == 0)) ; then
+		zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
+	fi
 
 	zfs set $senttimeprop  ${srcsnap}
 	# This will be redundant for recovery, but crucial for when
@@ -2199,7 +2209,8 @@ case "$1" in
 		;;
 	sentsync)
 		shift
-		zrep_sentsync "$1" #this is a 'something is broken" operation, so make it limited
+		# Note that this will NOT accept multiple snaps, for safety
+		zrep_sentsync "$@" 
 		;;
 	snaponly)
 		shift
