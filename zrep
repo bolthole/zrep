@@ -292,7 +292,7 @@ zrep_get_global_lock(){
 		ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
-		if ! -d /proc/$lockpid ; then
+		if [[ ! -d /proc/$lockpid ]] ; then
 			_errprint ERROR: stale global lock file
 			_errprint ERROR: shut down ALL zrep instances, then manually remove
 			_errprint $Z_GLOBAL_LOCKFILE
