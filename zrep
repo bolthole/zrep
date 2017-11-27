@@ -479,7 +479,10 @@ _debugprint(){
 # This consolidated function is both for prettiness, and also
 # to make dealing with github issue #22 easier, about redirecting stderr
 _errprint(){
-	print $@ >/dev/fd/2
+	# I thought /dev/fd was ksh builtin, so safest. But it glitches on some linuxen.
+	# print $@ >/dev/fd/2
+
+	print $@ >&2
 
 }
 ###### File: zrep_status
