@@ -862,7 +862,8 @@ makesnap(){
 	fi
 
 	oldseq=`getlastsequence $1`
-	newseq=$((0x$oldseq))
+	# This means input is base 16
+	newseq=$((16#$oldseq))
 
 	newseqX=$(printf "%.6x" $(($newseq + 1))  )
 
