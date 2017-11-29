@@ -87,7 +87,7 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 #########################################################################
 #########################################################################
-# Everyting else below here, should not be touched. 
+# Everything else below here, should not need to be touched. 
 
 # First we have some "special" internal vars.
 # Then autodetect routines,
@@ -115,6 +115,11 @@ if getconf PATH_RESOLVE > /dev/null 2>&1 ; then
 else
 	LS=ls
 fi
+
+# -n enforces "no dereference" of existing symlink, which is default
+# behaviour on some, but not all systems, apparently
+LN_S="ln -n -s"
+
 
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
@@ -275,7 +280,7 @@ zrep_get_global_lock(){
 
 	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
 
-	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+	$LN_S /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 
 	# otherwise, deal with fail
 	# Careful of race conditions on stale CLEAN UP!
@@ -289,7 +294,7 @@ zrep_get_global_lock(){
 	# For now, must request manual cleanup
 	while (( retry_count > 0 )); do
 		sleep 1
-		ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+		$LN_S /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
 		if [[ ! -d /proc/$lockpid ]] ; then
