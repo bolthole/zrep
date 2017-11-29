@@ -54,23 +54,27 @@ usage(){
 	print 'See the above documentation for details on using the -t flag'
 }
 
-#special case this. sigh...
-if [ "$1" == "-D" ] ; then
-	DEBUG=1
-	shift
-fi
-
-# And this...
-if [ "$1" == "-t" ] ; then
-	if [ "$2" == "" ] ; then
+#
+# Special global flags that must always be processed FIRST, before normal command args.
+#
+while [[ "$1" == -[tD] ]] ; do
+	case "$1" in
+	    -D)
+		DEBUG=1
+		shift
+		;;
+	    -t)
+		if [ "$2" == "" ] ; then
 		usage
-	fi
-	#deliberately dont quote this to avoid stupidity or malice by user
-	ZREPTAG=$2
-	
-	shift
-	shift
-fi
+		fi
+		#deliberately dont quote this to avoid stupidity or malice by user
+		ZREPTAG=$2
+		shift
+		shift
+		;;
+	esac
+done	
+
 
 if [[ "$ZREPTAG" != "zrep" ]] ; then
 	# If custom zrep tag, then probably multiple layers of snapshots.
