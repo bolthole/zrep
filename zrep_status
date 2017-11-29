@@ -17,7 +17,7 @@
 zrep_status(){
 	typeset check fs srcfs jdesthost destfs date lastsnap verbose=0
 	typeset printall=0
-	
+
 	if [[ "$1" == "-v" ]] ; then
 		verbose=1 ; shift
 	fi
@@ -85,7 +85,7 @@ _master_fs_names(){
 # convenience function to list only local filesystems for which we are
 # zrep master for.
 # In contrast, zrep_list, lists ALL zrep registered filesystem, at the moment.
-# 
+#
 # Annoyingly... it would be way faster if we could just stick with the
 # pure "zfs get" implementation, but we also need to deal with the zone
 # issue. When a single zfs filesystem is visible aross multiple zones,
@@ -132,7 +132,7 @@ list_verbose(){
 # Normal output is one line per fs.
 #
 #  -v gives all properties of each filesystem
-#  Give only one of -L or -v 
+#  Give only one of -L or -v
 #
 zrep_list(){
 	typeset fslist="" verbose=0
@@ -192,8 +192,8 @@ zrep_list(){
 		$printcmd $fs
 		print ""
 	done
-	
-	
+
+
 }
 
 # Similar to zrep_list, but lists SNAPSHOTS instead of filesystems
@@ -213,8 +213,8 @@ zrep_list_snaps(){
 
 	while [[ "$1" != "" ]] ; do
 	      zfs list -r -t snapshot -o name,creation $1
-	      shift 
+	      shift
 	done
-	
+
 }
 

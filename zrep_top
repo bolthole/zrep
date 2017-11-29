@@ -26,7 +26,7 @@ usage(){
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
 	print 'zrep refresh ZFS/fs               -- pull version of sync'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
-	print 'zrep (list|-l) -s     [fs/names]  -- list snapshots' 
+	print 'zrep (list|-l) -s     [fs/names]  -- list snapshots'
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
@@ -67,7 +67,7 @@ if [ "$1" == "-t" ] ; then
 	fi
 	#deliberately dont quote this to avoid stupidity or malice by user
 	ZREPTAG=$2
-	
+
 	shift
 	shift
 fi
@@ -115,7 +115,7 @@ case "$1" in
 	sentsync)
 		shift
 		# Note that this will NOT accept multiple snaps, for safety
-		zrep_sentsync "$@" 
+		zrep_sentsync "$@"
 		;;
 	snaponly)
 		shift
@@ -167,7 +167,7 @@ case "$1" in
 		print "http://www.github.com/bolthole/zrep"
 		exit
 		;;
-		
+
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
 		shift
 		_refreshpull $1

@@ -23,7 +23,7 @@ zrep_failover(){
 	fi
 
 	fs="$1"
-	
+
 	case $fs in
 		*@*)
 			snap=$fs
@@ -68,7 +68,7 @@ zrep_failover(){
 				zrep_errquit remote rollback failed
 
 		else
-			# makes new snapshot, and syncs 
+			# makes new snapshot, and syncs
 			_snapandsync $fs $remotehost $remotefs || zrep_errquit final sync failed. failover failed.
 		fi
 
@@ -77,20 +77,20 @@ zrep_failover(){
 
 	print Reversing master properties for $Z_LOCAL_HOST:$fs
 
-	zfs set ${ZREPTAG}:dest-fs=$fs $fs	
+	zfs set ${ZREPTAG}:dest-fs=$fs $fs
 	zfs set ${ZREPTAG}:dest-host=$Z_LOCAL_HOST $fs
-	zfs set ${ZREPTAG}:src-fs=$remotefs $fs	
+	zfs set ${ZREPTAG}:src-fs=$remotefs $fs
 	zfs set ${ZREPTAG}:src-host=$remotehost $fs
 
 	zfs inherit ${ZREPTAG}:master $fs
-	
+
 	zrep_unlock_fs $fs
 
 	if (( local ==0)) ;then
 		print Setting master on $remotehost:$remotefs
 		zrep_ssh $remotehost $ZREP_PATH takeover -L $remotefs
 	fi
-	
+
 }
 
 # run this on 'dest' side, to promote it to master
@@ -101,7 +101,7 @@ zrep_takeover(){
 		local=1
 		shift
 	fi
-	
+
 	if [[ "$1" == "" ]] ; then
 		usage
 		exit 1
@@ -158,9 +158,9 @@ zrep_takeover(){
 
 	print Setting master properties for $Z_LOCAL_HOST:$fs
 
-	zfs set ${ZREPTAG}:src-fs=$fs $fs	
+	zfs set ${ZREPTAG}:src-fs=$fs $fs
 	zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $fs
-	zfs set ${ZREPTAG}:dest-fs=$remotefs $fs	
+	zfs set ${ZREPTAG}:dest-fs=$remotefs $fs
 	zfs set ${ZREPTAG}:dest-host=$remotehost $fs
 
 	zfs set ${ZREPTAG}:master=yes $fs
@@ -172,8 +172,8 @@ zrep_takeover(){
 				zfs mount $fs
 		fi
 	fi
-	
+
 	zrep_unlock_fs $fs
-	
+
 
 }
