@@ -116,6 +116,12 @@ else
 	LS=ls
 fi
 
+if ln --version |grep -q GNU ; then
+	LN="ln -s --no-dereference"
+else
+	LN="ln -sh"
+fi
+
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
 	Z_LOCAL_HOST=${ZREP_SRC_HOST}
 else
@@ -275,7 +281,7 @@ zrep_get_global_lock(){
 
 	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
 
-	ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+	$LN /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE 2>/dev/null && return 0
 
 	# otherwise, deal with fail
 	# Careful of race conditions on stale CLEAN UP!
@@ -289,7 +295,7 @@ zrep_get_global_lock(){
 	# For now, must request manual cleanup
 	while (( retry_count > 0 )); do
 		sleep 1
-		ln -s /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+		$LN /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE 2>/dev/null && return 0
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
 		if [[ ! -d /proc/$lockpid ]] ; then
