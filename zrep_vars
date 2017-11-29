@@ -197,7 +197,7 @@ if grep 'help' $zrep_checkfile >/dev/null ;then
 	DEPTHCAP="-d 1" # limits "list -r"
 
 else
-	if grep 'receive .*-[a-zA-Z]*x' $zrep_checkfile >/dev/null ;then
+	if grep 'receive[ |].*-[a-zA-Z]*x' $zrep_checkfile >/dev/null ;then
 		Z_HAS_X=1	  # can use recv -x
 	fi
 	if grep 'receive .*-[a-zA-Z]*u' $zrep_checkfile >/dev/null ;then
