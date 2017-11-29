@@ -111,7 +111,7 @@ list_verbose(){
 		# match these 'source' types. So "grep zrep:" is not
 		# neccessary. Although we may pick up other user-set values,
 		# but that is not neccessarily a bad thing
-	zfs get -H -o property,value -s $PROPTYPES all $1
+	zfs get -H -o property,value -s $PROPTYPES all $1 | sort
 	print "last snapshot synced: `getlastsnapsent $1`"
 
 }
