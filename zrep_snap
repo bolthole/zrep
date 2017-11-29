@@ -1,7 +1,7 @@
 ################ File: zrep_snap
 # be sure to have included zrep_vars
 
-# This file contains routines related to 
+# This file contains routines related to
 # "make new snapshot, using next sequence number".
 # So it thus includes all snap sequence related routines
 # It may contain "sync snapshot" related routines for now.
@@ -14,7 +14,7 @@
 #   2.  sync it over
 #   3.  set "zrep:sent" on *snapshot*, with timestamp in seconds
 # Old-nasty-zfs compat mode:
-#   Step 3. Add/update "zrep:lastsent->snapname", and 
+#   Step 3. Add/update "zrep:lastsent->snapname", and
 #           "zrep:lastsenttime->timestamp",  on *filesystem*
 #
 ######################################################################
@@ -30,7 +30,7 @@ getlastsequence(){
 }
 
 # prints out last snapshot zrep created, going purely by sequence.
-# Note: "last created", which may or may NOT be "last successfully synced". 
+# Note: "last created", which may or may NOT be "last successfully synced".
 # This is basically "getallsnaps |tail -1"
 getlastsnap(){
 	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
@@ -61,8 +61,8 @@ getlastsnapsent(){
 #
 # This unfortunately needs to be compatible with both new way, and
 # old-nasty-hack-way
-# 
-# In future, may take optional argument of which HOST to check 
+#
+# In future, may take optional argument of which HOST to check
 # sync with. But since I currently only suport one host per fs... oh well.
 # If never synced, will return 1, and print ""
 #
@@ -110,7 +110,7 @@ list_autosnaps(){
 }
 
 # User entrypoint. Part of pair: snaponly, sendonly
-# Just makes snapshot. 
+# Just makes snapshot.
 zrep_snaponly(){
 	typeset srcfs
 
@@ -122,17 +122,17 @@ zrep_snaponly(){
 			# therefore, if something else is competing,
 			# coordination has failed. no retry.
 			zrep_errquit zrep snaponly failed for $srcfs: cannot get lock
-			
+
 		fi
 
 		makesnap $srcfs ||zrep_errquit snaponly for $srcfs failed
 
 		zrep_unlock_fs $srcfs
-		
-	done	
+
+	done
 }
 
-# 
+#
 # creates next snapshot in sequence
 # consider holding lock here
 # Caller must have zrep lock on filesystem:
@@ -163,18 +163,18 @@ makesnap(){
 
 	#_errprint DEBUG old=$oldseq new=$newseqX
 	newsnap="$1@${ZREPTAG}_$newseqX"
-	
+
 	zfs snapshot $Z_SNAP_R $newsnap
 	if [[ $? -eq 0 ]] ; then
 		print  $newsnap; return 0
 	else
 		return 1
 	fi
-	
+
 }
 
 ## This is the implentation for the "zrep clear" command
-## Purpose is to remove all zrep related hooks from a local filesystem. 
+## Purpose is to remove all zrep related hooks from a local filesystem.
 ##  (NOT delete it)
 ## Will remove zrep snapshots and zfs zrep: properties
 zrep_clear(){
@@ -186,7 +186,7 @@ zrep_clear(){
 	print "WARNING: Removing all zrep configs and snapshots from $1"
 	print " (for TAG=${ZREPTAG})"
 
-	
+
 	if [[ "$ZREP_FORCE" != "-f" ]] ; then
 		print Continuing in 10 seconds
 		sleep 10
@@ -209,7 +209,7 @@ _clear(){
 	done
 }
 
-## This is a special internal routine, used only by zrep_init, 
+## This is a special internal routine, used only by zrep_init,
 ## to reset target fs to pre-zrep state.
 ## call with "srcfs  errmsg1 errmsg2..."
 ## It will also REMOVE REMOTEFS if set in PROPERTIES!!
@@ -231,7 +231,7 @@ clearquit(){
 #
 # Set the to/from properties on a fs for zrep
 # Called by zrep_init  and zrep_changeconfig
-# Usage: 
+# Usage:
 #  setfsconfigs srcfs desthost destfs
 #  setfsconfigs -d destfs srchost srcfs
 #
@@ -331,7 +331,7 @@ zrep_init(){
 		#  https://groups.google.com/forum/#!topic/comp.unix.solaris/-5bcZFInozk
 		# subject:"solaris 11 crash when zfs send/receive of volume"
 	fi
-	
+
 
 	print Setting properties on $srcfs
 	setfsconfigs $srcfs $desthost $destfs
@@ -452,10 +452,10 @@ zrep_changeconfig(){
 		# skip safety checks
 		shift
 		setfsconfigs $@
-		return 
+		return
 	fi
 	typeset srcfs="$1" check
-	
+
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
 	fi
@@ -468,7 +468,7 @@ zrep_changeconfig(){
 	fi
 
 	setfsconfigs $@
-	
+
 }
 
 

@@ -291,7 +291,7 @@ NEED TO TEST incremental across early and late snaps, with stuff in middle.
       Cannot grab 'hold' on parent filesystem;  holds are only for
        snapshots.
    - Instead, use global lock:
-         ln -s /proc/$$ /var/run/zrep.lock
+         ln -s --no-dereference /proc/$$ /var/run/zrep.lock
      Hold for short time only
      Validate lock with "ls -F /var/run/zrep.lock/."
      Remove if invalid?
