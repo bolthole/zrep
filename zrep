@@ -1729,7 +1729,7 @@ zrep_refresh(){
 	_debugprint refresh step 2: Pulling $newsnap
 
 	if [[ "$BBCP" != "" ]] ; then
-		$BBCP "$srchost:$ZREP_PATH _refreshpull $newsnap" \
+		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap" \
 		  "zfs recv $force $destfs"
 	else
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
