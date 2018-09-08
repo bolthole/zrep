@@ -539,7 +539,11 @@ zrep_status(){
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
 			typeset sentseconds=`zfs get -H -o value ${ZREPTAG}:sent $lastsnap`
-			date=`perl -e 'use POSIX qw(strftime); print strftime "%Y/%m/%d-%H:%M:%S",localtime('$sentseconds');' `
+			date=`perl -e 'use POSIX qw(strftime); print strftime "%Y/%m/%d-%H:%M:%S",localtime('$sentseconds');' 2>/dev/null`
+			if [[ -z "$date" ]] ; then
+				# attempt fallback if no perl present (eg: stock FreeBSD)
+				date=`date +%Y/%m/%d-%H:%M:%S`
+			fi
 			vdate=${date%:*}
 
 			else
