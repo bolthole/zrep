@@ -23,7 +23,7 @@ _gensentprop(){
 # This only works with newstyle ZFS that allows property setting on snapshots
 # Needs to follow whatever is done in _sync(), after the zfs send
 #
-# Usage:   zrep_syncsync [-L] fs@snap
+# Usage:   zrep_sentsync [-L] fs@snap
 #
 zrep_sentsync(){
 	typeset local=0
