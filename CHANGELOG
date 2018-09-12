@@ -135,3 +135,9 @@ version 1.7.2
 
 version 1.7.3
 	enabled -f for failover
+
+version 1.7.4
+	lots of BSD portability fixes
+	made global lock work better
+	stderr fix for linux
+	added -L flag to sentsync
