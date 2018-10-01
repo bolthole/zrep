@@ -247,7 +247,7 @@ Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
 
 # return PID of proc holding global lock, or nothing
 zrep_global_lock_pid(){
-	$LS -l $Z_GLOBAL_LOCKFILE 2>/dev/null |awk -F/ '{print $NF}'
+	cat $Z_GLOBAL_LOCKFILE 2>/dev/null
 }
 
 # return 0 if "we" are holding lock, 1 otherwise
@@ -276,9 +276,8 @@ zrep_get_global_lock(){
 	typeset lockpid
 
 
-	[[ -d /proc/$$ ]] || zrep_errquit "/proc fs must be functional to use zrep"
+	(set -C; echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE) && return 0
 
-	$LN_S /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
 
 	# otherwise, deal with fail
 	# Careful of race conditions on stale CLEAN UP!
@@ -292,10 +291,10 @@ zrep_get_global_lock(){
 	# For now, must request manual cleanup
 	while (( retry_count > 0 )); do
 		sleep 1
-		$LN_S /proc/$Z_GLOBAL_PID $Z_GLOBAL_LOCKFILE && return 0
+		(set -C; echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE) && return 0
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
-		if [[ ! -d /proc/$lockpid ]] ; then
+		if ! kill -0 $lockpid; then
 			_errprint ERROR: stale global lock file
 			_errprint ERROR: shut down ALL zrep instances, then manually remove
 			_errprint $Z_GLOBAL_LOCKFILE
