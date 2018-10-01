@@ -654,6 +654,7 @@ _expire(){
 		zrep_errquit ${ZREPTAG}:savecount on $1 set to improper value $savecount
 	fi
 
+	rm -f $tmpfile
 	if [[ "$master" == "yes" ]] ; then
 		lastsent=`getlastsnapsent $1`
 		if [[ "$lastsent" == "" ]] ; then
