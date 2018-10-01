@@ -562,13 +562,16 @@ zrep_refresh(){
 
 }
 
-# Hidden command-line option for "zrep refresh"
-# This is the "remote call" to support zrep refresh
+# Implementation for hidden command-line option, "zrep _refreshpull"
+# This is called remotely by zrep refresh
 #    ( aka  zrep_refresh  )
-# In principle, its kinda like "zrep expire" being callable by
-# both the user, and the program itself. 
-# However, this routine is definitely not supposed to be user visible
+# We dont just call "ssh zfs send", because we want to use zrep locking
+#
+# This routine is definitely not supposed to be user visible
 #   .. eh... maybe someday. but initial design is "private"
+#
+# Syntax:  _refreshpull fs/name [optional resume token]
+#
 _refreshpull(){
 	typeset fs snapname lastsent latest
 
