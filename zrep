@@ -107,14 +107,20 @@ ZFSGETVAL="zfs get -H -o value"
 
 
 # Work around a bug in gentoo ksh that breaks "ls -l" builtin.
+# It follows symlinks.
 # Would prefer to just override with _AST_FEATURES, but apparently,
 # that only gets checked when ksh first starts or something
 # Maybe use getconf itself somehow, if safe?
-if getconf PATH_RESOLVE > /dev/null 2>&1 ; then
-	LS=/bin/ls
-else
-	LS=ls
-fi
+# Trick would be to do
+# export _AST_FEATURES="PATH_RESOLVE = physical"
+# but cant.
+#### This is not even used any more!! But I'm keeping it in as
+#### documentation for historical knowlege
+#if getconf PATH_RESOLVE > /dev/null 2>&1 ; then
+#	LS=/bin/ls
+#else
+#	LS=ls
+#fi
 
 # -n enforces "no dereference" of existing symlink, which is default
 # behaviour on some, but not all systems, apparently
