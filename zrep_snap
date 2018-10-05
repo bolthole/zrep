@@ -368,10 +368,10 @@ zrep_init(){
 		#
 
 		if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "zfs send ${ZREP_R} -p $snap" \
+		$BBCP -N io "zfs send ${ZREP_SEND_VERBOSE} ${ZREP_R} -p $snap" \
 		    "$desthost:zfs recv -u  $READONLYPROP -F $destfs"
 		else
-		eval zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
+		eval zfs send ${ZREP_SEND_VERBOSE} ${ZREP_R} -p $snap ${Z_F_OUT}|
 			zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP -F $destfs"
 		fi
 	else
@@ -384,10 +384,10 @@ zrep_init(){
 		#  Update your system! :p )
 		#
 		if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "zfs send ${ZREP_R} $snap" \
+		$BBCP -N io "zfs send ${ZREP_SEND_VERBOSE} ${ZREP_R} $snap" \
 		    "$desthost:zfs recv $READONLYPROP -F $destfs"
 		else
-		eval zfs send ${ZREP_R} $snap ${Z_F_OUT}|
+		eval zfs send ${ZREP_SEND_VERBOSE} ${ZREP_R} $snap ${Z_F_OUT}|
 		  zrep_ssh $desthost "${Z_F_IN} zfs recv $READONLYPROP -F $destfs"
 		fi
 	fi

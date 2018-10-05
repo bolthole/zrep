@@ -79,6 +79,8 @@ ZREPTAG=${ZREPTAG:-zrep}
 # If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
+# Verbose output when zfs send is done (shows progress)
+#ZREP_SEND_VERBOSE=-v
 
 # Hidden var, that isnt really meant to be used directly.
 # It gets set if you use "zrep sync -c". 
