@@ -19,12 +19,12 @@ usage(){
 	print "  Philip Brown, 2012-2017"
 	print ""
 	print Simple usage summary:
-	print 'zrep (init|-i) ZFS/fs remotehost remoteZFSpool/fs'
-	print 'zrep (sync|-S) [-q seconds] ZFS/fs'
-	print 'zrep (sync|-S) [-q seconds] all'
-	print 'zrep (sync|-S) ZFS/fs@snapshot    -- temporary retroactive sync'
+	print 'zrep (init|-i) [-v] ZFS/fs remotehost remoteZFSpool/fs'
+	print 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
+	print 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
+	print 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
-	print 'zrep refresh ZFS/fs               -- pull version of sync'
+	print 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
 	print 'zrep (list|-l) -s     [fs/names]  -- list snapshots' 
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
@@ -114,6 +114,10 @@ case "$1" in
 		;;
 	init|-i)
 		shift
+		if [[ "$1" == "-v" ]] ; then
+			shift
+			ZREP_VERBOSE=yes
+		fi
 		zrep_init "$@"
 		;;
 	sentsync)
@@ -131,6 +135,10 @@ case "$1" in
 			shift
 			ZREP_FORCE=-f
 		fi
+		if [[ "$1" == "-v" ]] ; then
+			shift
+			ZREP_VERBOSE=yes
+		fi
 		zrep_sync "$@"
 		;;
 	synconly)
@@ -142,6 +150,10 @@ case "$1" in
 		if [[ "$1" == "-f" ]] ; then
 			shift
 			ZREP_FORCE=-f
+		fi
+		if [[ "$1" == "-v" ]] ; then
+			shift
+			ZREP_VERBOSE=yes
 		fi
 		zrep_refresh "$@"
 		;;

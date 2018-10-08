@@ -298,7 +298,11 @@ setfsconfigs(){
 #
 zrep_init(){
 	typeset srcfs="$1" desthost="$2" destfs="$3" snap check vol=0
-	typeset mountpoint vflags
+	typeset mountpoint vflags verbose
+
+	if [[ "$ZREP_VERBOSE" != "" ]] ; then
+		verbose=-v
+	fi
 
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
@@ -368,10 +372,10 @@ zrep_init(){
 		#
 
 		if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "zfs send ${ZREP_R} -p $snap" \
+		$BBCP -N io "zfs send $verbose ${ZREP_R} -p $snap" \
 		    "$desthost:zfs recv -u  $READONLYPROP -F $destfs"
 		else
-		eval zfs send ${ZREP_R} -p $snap ${Z_F_OUT}|
+		eval zfs send $verbose ${ZREP_R} -p $snap ${Z_F_OUT}|
 			zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP -F $destfs"
 		fi
 	else

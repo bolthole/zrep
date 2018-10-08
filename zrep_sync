@@ -244,9 +244,13 @@ _snapandsync(){
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 _sync(){
-	typeset force
+	typeset force verbose
+	
 	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		force=-F
+	fi
+	if [[ "$ZREP_VERBOSE" != "" ]] ; then
+		verbose=-v
 	fi
 
 	typeset srcfs=$1 desthost=$2 destfs=$3
@@ -286,11 +290,11 @@ _sync(){
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
 	if [[ "$BBCP" != "" ]] ; then
-	        SENDCMD="zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
+	        SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $force $destfs"
 	else
-		eval zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+		eval zfs send $verbose ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
 		   zrep_ssh $desthost "${Z_F_IN} zfs recv $force $destfs"
 	fi
 
@@ -497,7 +501,12 @@ zrep_refresh(){
 		force=-F
 	fi
 
-	# for now, just handle ONE arg, not multiple fs list
+	if [[ "$1" == "-r" ]] ; then
+		export Z_RESUME=1
+		shift
+	fi
+
+	# for now, just handle ONE fs, not multiple fs list
 
 	destfs="$1"
 	if [[ "$1" == "" ]] ; then
@@ -573,7 +582,11 @@ zrep_refresh(){
 # Syntax:  _refreshpull fs/name [optional resume token]
 #
 _refreshpull(){
-	typeset fs snapname lastsent latest
+	typeset fs snapname lastsent latest verbose
+
+	if [[ "$ZREP_VERBOSE" != "" ]] ; then
+		verbose=-v
+	fi
 
 	snapname="$1"
 	fs=${snapname%@*}
@@ -614,7 +627,7 @@ _refreshpull(){
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
 	fi
 
-	zfs send ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $latest
+	zfs send $verbose ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $latest
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull

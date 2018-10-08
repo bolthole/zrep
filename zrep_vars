@@ -60,6 +60,11 @@ ZREPTAG=${ZREPTAG:-zrep}
 #   set an override value for INC_FLAG in either case.
 #ZREP_INC_FLAG=-I
 
+# This currently doesnt do much, and is probably best not user-set.
+# I should probably make use of this more standardized.
+# But you can set it if you want
+#ZREP_VERBOSE=yes
+
 
 # If you want to override uname -n, with an official
 # canonical name for zrep:src-host, use this environment variable when you 
