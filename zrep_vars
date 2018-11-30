@@ -123,7 +123,8 @@ ZFSGETVAL="zfs get -H -o value"
 
 # -n enforces "no dereference" of existing symlink, which is default
 # behaviour on some, but not all systems, apparently
-LN_S="ln -n -s"
+#LN_S="ln -n -s"
+# I dont use ln any more, but leaving this for useful historical info.
 
 
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then

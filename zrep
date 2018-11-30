@@ -129,7 +129,8 @@ ZFSGETVAL="zfs get -H -o value"
 
 # -n enforces "no dereference" of existing symlink, which is default
 # behaviour on some, but not all systems, apparently
-LN_S="ln -n -s"
+#LN_S="ln -n -s"
+# I dont use ln any more, but leaving this for useful historical info.
 
 
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then
@@ -1009,7 +1010,7 @@ setfsconfigs(){
 			# Only the pool name given.
 			# With our curent workflow, that can ONLY WORK
 			# if recent versions of ZFS are in use.
-			if (( $Z_HAS_REC_U )) ; then
+			if (( Z_HAS_REC_U )) ; then
 				print WARNING: forcing override sync to top level pool $desthost:$destfs
 				print Not using a usual sub-filesystem
 				sleep 5
@@ -1102,7 +1103,7 @@ zrep_init(){
 	# Note: we may have to reset readonly=on, if we used -p on send...
 	#
 	print Sending initial replication stream to $desthost:$destfs
-	if (( $Z_HAS_REC_U )) ; then
+	if (( Z_HAS_REC_U )) ; then
 		# This is the nice, clean, modern codepath, to send
 		# zrep settings over automatically at first init.
 		# Note that we use "zfs send -p" to preserve properties.
@@ -1181,7 +1182,7 @@ zrep_init(){
 	zfs set ${ZREPTAG}:master=yes	$srcfs
 
 	print Initialization copy of $srcfs to $desthost:$destfs complete
-	if (( $Z_HAS_REC_U )) ; then
+	if (( Z_HAS_REC_U )) ; then
 		print Filesystem will not be mounted
 	fi
 
