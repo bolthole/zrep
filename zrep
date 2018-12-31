@@ -1,7 +1,7 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.7.4
+ZREP_VERSION=1.7.5
 
 ######## start of included files from zrep_top here
 ########### File: zrep_vars
@@ -131,6 +131,7 @@ ZFSGETVAL="zfs get -H -o value"
 # behaviour on some, but not all systems, apparently
 #LN_S="ln -n -s"
 # I dont use ln any more, but leaving this for useful historical info.
+# side note: ksh built-in ln, DOES NOT SUPPORT -n !
 
 
 if [[ "$ZREP_SRC_HOST" != "" ]] ; then

@@ -141,3 +141,7 @@ version 1.7.4
 	made global lock work better
 	stderr fix for linux
 	added -L flag to sentsync
+
+version 1.7.5
+	removed requirement for /proc fs
+	added -v to sync and refresh
