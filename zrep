@@ -27,6 +27,9 @@ ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
 #  !! also, make sure variable is EXPORTED !!
 ZREPTAG=${ZREPTAG:-zrep}
 
+#If set to yes(default), renames failed sync snapshots to "zrep_#####_unsent"
+ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
+
 #ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
 
 # If you'd like a little extra debug output define this env var to something
@@ -1520,8 +1523,13 @@ _sync(){
 	# for the DUAL use, of replication,
 	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
 	if [[ $? -ne 0 ]] ; then
-		zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
-		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
+		if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
+			zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
+			zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
+		else
+			zfs destroy ${Z_SNAP_R} ${newsnap}
+			zrep_errquit Problem doing sync for $newsnap.
+		fi
 	fi
 
 

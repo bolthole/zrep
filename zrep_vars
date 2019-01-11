@@ -21,6 +21,9 @@ ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
 #  !! also, make sure variable is EXPORTED !!
 ZREPTAG=${ZREPTAG:-zrep}
 
+#If set to yes(default), renames failed sync snapshots to "zrep_#####_unsent"
+ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
+
 #ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
 
 # If you'd like a little extra debug output define this env var to something

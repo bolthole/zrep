@@ -302,8 +302,13 @@ _sync(){
 	# for the DUAL use, of replication,
 	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
 	if [[ $? -ne 0 ]] ; then
-		zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
-		zrep_errquit Problem doing sync for $newsnap. renamed to ${newsnap}_unsent
+		if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
+			zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
+			zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
+		else
+			zfs destroy ${Z_SNAP_R} ${newsnap}
+			zrep_errquit Problem doing sync for $newsnap.
+		fi
 	fi
 
 
