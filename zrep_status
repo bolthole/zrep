@@ -71,7 +71,7 @@ zrep_status(){
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "$vdate"
 		else
 			printf "%-47s" $srcfs
-			print "last synced $date"
+			print " last synced $date"
 		fi
 		shift
 	done
