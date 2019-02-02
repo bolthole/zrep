@@ -591,8 +591,8 @@ zrep_status(){
 			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "$vdate"
 		else
-			printf "%-47s" $srcfs
-			print "last synced $date"
+			printf "%-52s " $srcfs
+			print "last: $date"
 		fi
 		shift
 	done
