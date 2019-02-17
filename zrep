@@ -79,6 +79,7 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 #   places, and expiration wont work properly on the remote sides
 #   So we will autochange incremental type to -i. .. unless you explicitly 
 #   set an override value for INC_FLAG in either case.
+#   Probably should have named this INCR_FLAG, but it's in use now
 #ZREP_INC_FLAG=-I
 
 # This currently doesnt do much, and is probably best not user-set.
@@ -575,14 +576,14 @@ zrep_status(){
 			date="[NEVER]"
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
-			typeset sentseconds=`zfs get -H -o value ${ZREPTAG}:sent $lastsnap`
+			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
 			date=`perl -e 'use POSIX qw(strftime); print strftime "%Y/%m/%d-%H:%M:%S",localtime('$sentseconds');' 2>/dev/null`
 			vdate=${date%:*}
 			fi
 
 			#This is also a fallback for no-perl FreeBSD systems
 			if [[ "$vdate" == "" ]] ; then
-			date=`zfs get -H -o value creation $lastsnap`
+			date=`$ZFSGETVAL creation $lastsnap`
 			vdate=${date#????}
 			fi
 		fi
@@ -752,6 +753,30 @@ zrep_list_snaps(){
 	
 }
 
+
+# Give a filesystem name. 
+#  Gets last sent snapshot, and determines if there have
+# been any writes since then.
+# If not, then file sytem is "up to date"
+zrep_uptodate(){
+	if [[ "$1" == "" ]] ; then
+		_errprint ERROR: zrep uptodate requires the name of a zrep managed fs
+		exit 1
+	fi
+	
+	typeset bytecount
+	bytecount=`$ZFSGETVAL written "$1"`
+	# two fail conditions are: 
+	# 1. not zrep filesystem
+	# 2. system does not support "zfs get written"
+	# Either way we count it as "not up to date"
+
+	if [[ $bytecount == 0 ]] ; then
+		return 0
+	else
+		return 1
+	fi
+}
 ################ File: zrep_snap
 # be sure to have included zrep_vars
 
@@ -2348,6 +2373,11 @@ case "$1" in
 	takeover)
 		shift
 		zrep_takeover "$@"
+		;;
+	uptodate)
+		shift
+		zrep_uptodate "$@"
+		exit $?
 		;;
 	version)
 		print "zrep $ZREP_VERSION"

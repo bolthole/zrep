@@ -177,6 +177,11 @@ case "$1" in
 		shift
 		zrep_takeover "$@"
 		;;
+	uptodate)
+		shift
+		zrep_uptodate "$@"
+		exit $?
+		;;
 	version)
 		print "zrep $ZREP_VERSION"
 		print "http://www.bolthole.com/solaris/zrep"
