@@ -32,6 +32,7 @@ usage(){
 	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	print 'zrep failover [-L] ZFS/fs'
 	print 'zrep takeover [-L] ZFS/fs'
+	print 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
 	print 'zrep version'
 	print 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
 	print
