@@ -73,6 +73,7 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 #   places, and expiration wont work properly on the remote sides
 #   So we will autochange incremental type to -i. .. unless you explicitly 
 #   set an override value for INC_FLAG in either case.
+#   Probably should have named this INCR_FLAG, but it's in use now
 #ZREP_INC_FLAG=-I
 
 # This currently doesnt do much, and is probably best not user-set.
