@@ -55,7 +55,19 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 #  (or use the -R option to BOTH zrep init and zrep sync
 #ZREP_R=-R
 
-# The default incremental flag is -I. 
+
+# Sometimes, people may want to add extra flags to "zfs send".
+#   If your system supports it, then adding -c means that
+#   compressed filesystems will be sent in compressed form, rather
+#   then autouncompressing
+# Note that at the current time, this does NOT get used, for
+#   the initial "zrep init" zfs send. If this gets reported as
+#   a problem, that may change
+#ZREP_SEND_FLAGS=-c
+
+
+# There are two types of zfs incremental snapshots.
+#   The default incremental flag is -I. 
 #   UNLESS you set ZREPTAG to something other than zrep, in which case
 #   you will have multiple zrep snapshot names probably going to different
 #   places, and expiration wont work properly on the remote sides
@@ -70,15 +82,15 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 
 
 # If you want to override uname -n, with an official
-# canonical name for zrep:src-host, use this environment variable when you 
-# run "zrep init"
+#  canonical name for zrep:src-host, use this environment variable when 
+#  you run "zrep init"
 #ZREP_SRC_HOST=somehost.your.dom
 
-# Solaris hack, to use native perl, which isnt always in $PATH,but should
-# always be there. It's also simple, straightforward, and non-extended.
-# On other OSs this path will not exist, so it will just fall back to
-# use the system default perl. Unless user wants to specify perl path.
-# If you dont have /usr/perl5, this wont hurt you so just ignore it.
+# Solaris hack to use native perl, which isnt always in $PATH,but should
+#   always be there. It's also simple, straightforward, and non-extended.
+#   On other OSs this path will not exist, so it will just fall back to
+#   use the system default perl. Unless user wants to specify perl path.
+#   If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 

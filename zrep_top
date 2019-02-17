@@ -89,6 +89,9 @@ fi
 ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
 
+# combine with INC flag since only used for send,
+#  and makes the command line invokation in the code a bit prettier
+ZREP_SEND_FLAGS="${ZREP_INC_FLAG} ${ZREP_SEND_FLAGS}"
 
 
 case "$1" in

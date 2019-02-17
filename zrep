@@ -61,7 +61,19 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 #  (or use the -R option to BOTH zrep init and zrep sync
 #ZREP_R=-R
 
-# The default incremental flag is -I. 
+
+# Sometimes, people may want to add extra flags to "zfs send".
+#   If your system supports it, then adding -c means that
+#   compressed filesystems will be sent in compressed form, rather
+#   then autouncompressing
+# Note that at the current time, this does NOT get used, for
+#   the initial "zrep init" zfs send. If this gets reported as
+#   a problem, that may change
+#ZREP_SEND_FLAGS=-c
+
+
+# There are two types of zfs incremental snapshots.
+#   The default incremental flag is -I. 
 #   UNLESS you set ZREPTAG to something other than zrep, in which case
 #   you will have multiple zrep snapshot names probably going to different
 #   places, and expiration wont work properly on the remote sides
@@ -76,15 +88,15 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 
 
 # If you want to override uname -n, with an official
-# canonical name for zrep:src-host, use this environment variable when you 
-# run "zrep init"
+#  canonical name for zrep:src-host, use this environment variable when 
+#  you run "zrep init"
 #ZREP_SRC_HOST=somehost.your.dom
 
-# Solaris hack, to use native perl, which isnt always in $PATH,but should
-# always be there. It's also simple, straightforward, and non-extended.
-# On other OSs this path will not exist, so it will just fall back to
-# use the system default perl. Unless user wants to specify perl path.
-# If you dont have /usr/perl5, this wont hurt you so just ignore it.
+# Solaris hack to use native perl, which isnt always in $PATH,but should
+#   always be there. It's also simple, straightforward, and non-extended.
+#   On other OSs this path will not exist, so it will just fall back to
+#   use the system default perl. Unless user wants to specify perl path.
+#   If you dont have /usr/perl5, this wont hurt you so just ignore it.
 PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 
 
@@ -1511,11 +1523,11 @@ _sync(){
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
 	if [[ "$BBCP" != "" ]] ; then
-	        SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap"
+	        SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} $lastsent $newsnap"
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $force $destfs"
 	else
-		eval zfs send $verbose ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+		eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} $lastsent $newsnap ${Z_F_OUT} | 
 		   zrep_ssh $desthost "${Z_F_IN} zfs recv $force $destfs"
 	fi
 
@@ -1853,7 +1865,7 @@ _refreshpull(){
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
 	fi
 
-	zfs send $verbose ${ZREP_R} ${ZREP_INC_FLAG} $lastsent $latest
+	zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} $lastsent $latest
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
@@ -2249,6 +2261,9 @@ fi
 ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
 
+# combine with INC flag since only used for send,
+#  and makes the command line invokation in the code a bit prettier
+ZREP_SEND_FLAGS="${ZREP_INC_FLAG} ${ZREP_SEND_FLAGS}"
 
 
 case "$1" in
