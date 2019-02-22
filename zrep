@@ -601,7 +601,7 @@ zrep_status(){
 		fi
 
 		if ((verbose)) ; then
-			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "$vdate"
 		else
 			printf "%-52s " $srcfs
