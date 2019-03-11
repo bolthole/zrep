@@ -1,2 +1,6 @@
+# Basic trivial travis test file
+# Just checks to see there arent any really stupid syntax errors
+# Maybe some day we can have some more complex tests
+#
 install: sudo apt-get install ksh
 script: ./zrep
