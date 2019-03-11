@@ -1,1 +1,2 @@
-script: zrep
+install: true
+script: ./zrep
