@@ -1,2 +1,2 @@
-install: true
+install: sudo apt-get install ksh
 script: ./zrep
