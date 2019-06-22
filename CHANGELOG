@@ -145,3 +145,8 @@ version 1.7.4
 version 1.7.5
 	removed requirement for /proc fs
 	added -v to sync and refresh
+
+version 1.7.6
+	added ZREP_SEND_FLAGS as separate tunable
+	added zrep_uptodate
+
