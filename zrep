@@ -242,8 +242,8 @@ else
 	# SmartOS and FreeBSD implemented recv -o WRONG! So no Z_HAS_REC_O for it!
 	# But also, -o doesnt even show in the output of solaris zfs usage. sigh.
 	# So have to be creative
-	if grep 'create .* -o prop' $zrep_checkfile >/dev/null ;then
-		grep 'rec.* -o origin' $zrep_checkfile >/dev/null  ||
+	if grep 'create .*-o prop' $zrep_checkfile >/dev/null ;then
+		grep 'rec.*-o origin' $zrep_checkfile >/dev/null  ||
 		     Z_HAS_REC_O=1 # can use recv -o
 	fi
 	if grep 'set .*snapshot' $zrep_checkfile >/dev/null ;then
