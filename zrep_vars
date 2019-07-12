@@ -209,7 +209,7 @@ zfs >$zrep_checkfile 2>&1
 # at the expense of some startup speed :(
 Z_HAS_X=0	  # can use recv -x
 Z_HAS_REC_U=0	  # can use recv -u
-Z_HAS_REC_O=0     # can use recv -o (note: SmartOS -o is WRONG)
+Z_HAS_REC_O=0     # can use recv -o (note: SmartOS -o is NOT WHAT WE WANT)
 Z_HAS_SNAPPROPS=0
 
 if grep 'help' $zrep_checkfile >/dev/null ;then
@@ -217,7 +217,7 @@ if grep 'help' $zrep_checkfile >/dev/null ;then
    # does not allow line-by-line feature detection easily
 	Z_HAS_X=1	  # can use recv -x
 	Z_HAS_REC_U=1	  # can use recv -u
-	Z_HAS_REC_O=1      # can use recv -o
+	Z_HAS_REC_O=1     # can use recv -o
 	Z_HAS_SNAPPROPS=1 # can set properties on snapshots
 			  # This also lets me set "last synced" timestamps
 			  # otherwise cant use zrep:sent sanely.
@@ -233,11 +233,19 @@ else
 		Z_HAS_REC_U=1	  # can use recv -u
 	fi
 	# This bit is unfortunately ugly. Two problems:
-	# SmartOS and FreeBSD implemented recv -o WRONG! So no Z_HAS_REC_O for it!
+	# SmartOS and FreeBSD implemented recv -o WRONG! 
+	# They use -o to set "origin", not to set options
+	# So no Z_HAS_REC_O for it!
 	# But also, -o doesnt even show in the output of solaris zfs usage. sigh.
-	# So have to be creative
-	if grep 'create .* -o prop' $zrep_checkfile >/dev/null ;then
-		grep 'rec.* -o origin' $zrep_checkfile >/dev/null  ||
+	# So have to be creative.
+	# Note that some systems have '-o' directly after create, and some do not.
+	if grep 'create .*-o prop' $zrep_checkfile >/dev/null ;then
+		# This is probably nested under the create check, because we
+		# only use recv -o, right after using create -o.
+		# However, we now ALWAYS use create -o, so.. may be unneccesary
+		# 
+		# Skip zfs that uses recv -o origin
+		grep 'rec[ev].*-o origin' $zrep_checkfile >/dev/null  ||
 		     Z_HAS_REC_O=1 # can use recv -o
 	fi
 	if grep 'set .*snapshot' $zrep_checkfile >/dev/null ;then
