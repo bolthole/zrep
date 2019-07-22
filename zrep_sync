@@ -45,7 +45,7 @@ zrep_sentsync(){
 		zrep_errquit Expected snapshot for $1. Cannot continue
 	fi
 	case "$1" in
-		*@${ZREPTAG}_[0-9]*)
+		*@${ZREPTAG}_[0-9a-f]*)
 		:
 		;;
 		*)
