@@ -1382,7 +1382,7 @@ synctosnap(){
 	#  ( getlastsnap() wont find it! )
 	#
 	case $snapname in
-		zrep_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+		${ZREPTAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
 		: ;;
 		*)
 			zrep_errquit $srcsnap is not zrep snapshot. Cannot roll with it.
