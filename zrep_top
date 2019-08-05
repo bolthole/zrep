@@ -40,8 +40,8 @@ usage(){
 	print '      more recently than the given amount of seconds'
 	print
 	print 'Paired commands for high-transaction systems:'
-	print '   zrep snaponly ZFS/fs'
-	print '   zrep synconly ZFS/fs'
+	print '   zrep snaponly (ZFS/fs ... |all)'
+	print '   zrep synconly (ZFS/fs ...|all)'
 	print 'The above two commands split the simple sync subcommand, into two'
 	print 'separate steps, so that a database, etc. may resume while the sync'
 	print 'completes in the background'

@@ -114,6 +114,13 @@ list_autosnaps(){
 zrep_snaponly(){
 	typeset srcfs
 
+	if [[ "$1" == "all" ]] ; then
+		set -- `zrep_list_master`
+		if [[ "$1" == "" ]] ; then
+			exit
+		fi
+	fi
+
 	while [[ "$1" != "" ]] ; do
 		srcfs="$1" ;shift
 		zrep_lock_fs $srcfs

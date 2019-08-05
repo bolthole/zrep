@@ -357,28 +357,38 @@ zrep_synconly(){
 #	we can skip retries, though.
 	typeset srcfs desthost destfs
 
-	# at one point, accept multiple args. But not for now...?
-	srcfs=$1
-
-	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for synconly
-
-	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
-	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
-	then
-		zrep_errquit Problem getting zrep properties for fs $srcfs
+	if [[ "$1" == "all" ]] ; then
+		set -- `zrep_list_master`
+		if [[ "$1" == "" ]] ; then
+			exit
+		fi
 	fi
 
-	zrep_lock_fs $srcfs
-	if [[ $? -ne 0 ]] ; then
-		zrep_errquit Failed to acquire zrep lock for $srcfs
-	fi
+	[[ "$1" == "" ]] && zrep_errquit No fileystem specified for synconly
 
-	_sync $srcfs $desthost $destfs || zrep_errquit sync failed for $srcfs
+	while [[ "$1" != "" ]] ; do
+		srcfs=$1
 
-	_expire $srcfs	#dont care so much if this fails
 
-	zrep_unlock_fs $srcfs
+		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
+		if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+		then
+			zrep_errquit Problem getting zrep properties for fs $srcfs
+		fi
+
+		zrep_lock_fs $srcfs
+		if [[ $? -ne 0 ]] ; then
+			zrep_errquit Failed to acquire zrep lock for $srcfs
+		fi
+
+		_sync $srcfs $desthost $destfs || zrep_errquit sync failed for $srcfs
+
+		_expire $srcfs	#dont care so much if this fails
+
+		zrep_unlock_fs $srcfs
+
+	done
 }
 
 
