@@ -318,7 +318,7 @@ zrep_init(){
 		fi
 		zrep_errquit "To re-initialize, first use zrep clear $srcfs"
 	fi
-	check="`zfs get -H -o value type $srcfs`"
+	check="`$ZFSGETVAL type $srcfs`"
 	if [[ "$check" == "volume" ]] ; then
 		vol=1
 		if (( ! Z_HAS_REC_O )) ; then
@@ -326,7 +326,7 @@ zrep_init(){
 			echo WARNING: extremely old versions of ZFS crash with volume init
 			echo Continuing in 5 seconds....
 			sleep 5
-			vflags="`zfs get -H -o value volsize $srcfs`"
+			vflags="`$ZFSGETVAL volsize $srcfs`"
 			vflags="-V $vflags"
 
 
