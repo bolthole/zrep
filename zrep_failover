@@ -147,7 +147,7 @@ zrep_takeover(){
 	if [[ "$snap" != "" ]] ; then
 		print "WARNING: Before takeover, we will be rolling $fs"
 		print -n "   to  $snapname, made at: "
-		zfs get -H -o value creation $snap
+		$ZFSGETVAL creation $snap
 		print ""
 		print "All newer snapshots will be destroyed"
 		print Continuing in 10 seconds...
@@ -166,8 +166,8 @@ zrep_takeover(){
 	zfs set ${ZREPTAG}:master=yes $fs
 
 	# Since we default to creating replicas unmounted... mount it now
-	if [[ "`zfs get -H -o value type $fs`" == "filesystem" ]] ; then
-		if [[ "`zfs get -H -o value mounted $fs`" == "no" ]] ; then
+	if [[ "`$ZFSGETVAL type $fs`" == "filesystem" ]] ; then
+		if [[ "`$ZFSGETVAL mounted $fs`" == "no" ]] ; then
 				print Mounting $Z_LOCAL_HOST:$fs
 				zfs mount $fs
 		fi
