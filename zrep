@@ -324,10 +324,11 @@ zrep_get_global_lock(){
 	typeset retry_count=$Z_LOCK_RETRY
 	typeset lockpid
 
-	set -C
-	echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE && return 0
+	set -C  #noclobber
+	# ignore error this time, because we retry anyway.
+	echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE 2>/dev/null && return 0  
 
-	# otherwise, deal with fail
+	# Otherwise, deal with fail/retry.
 	# Careful of race conditions on stale CLEAN UP!
 	# How to resolve problem where
 	# * multiple instances running
@@ -339,12 +340,16 @@ zrep_get_global_lock(){
 	# For now, must request manual cleanup
 	while (( retry_count > 0 )); do
 		sleep 1
-		echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE && return 0
+		errmsg=`echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE 2>&1`
+		if [[ $? -eq 0 ]] ; then return 0 ; fi
+
 		retry_count=$((retry_count-1))
 		lockpid=`zrep_global_lock_pid`
 		if [[ "$lockpid" -le 0 ]] ; then
 			zrep_errquit ERROR: invalid contents for global lock file $Z_GLOBAL_LOCKFILE
 		fi
+		# Does the process holding the lock actually still exist?
+		# In theory, teenietiny chance of race condition for false stale. That's okay.
 		kill -0 $lockpid 2>/dev/null
 		if [[ $? -ne 0 ]] ; then
 			_errprint ERROR: stale global lock file
@@ -354,8 +359,10 @@ zrep_get_global_lock(){
 
 	done
 
-	print Failed to acquire global lock 
+	print Failed to acquire global lock
+	print Error message was: $errmsg
 	return 1
+	
 }
 
 zrep_release_global_lock(){
