@@ -340,7 +340,7 @@ zrep_get_global_lock(){
 	# For now, must request manual cleanup
 	while (( retry_count > 0 )); do
 		sleep 1
-		errmsg=`echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE 2>&1`
+		errmsg=`echo $Z_GLOBAL_PID 2>&1 > $Z_GLOBAL_LOCKFILE `
 		if [[ $? -eq 0 ]] ; then return 0 ; fi
 
 		retry_count=$((retry_count-1))
