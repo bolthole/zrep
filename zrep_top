@@ -146,6 +146,9 @@ case "$1" in
 				shift
 				ZREP_RESUME=yes
 				;;
+				*)
+				break
+				;;
 			esac
 		done
 		zrep_sync "$@"
