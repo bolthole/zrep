@@ -537,10 +537,14 @@ zrep_ssh(){
 }
 
 zrep_gettimeinseconds(){
-	# unfortunately, solaris date doesnt do '%s', so need to use perl
 	typeset seconds
 	typeset PATH=$PERL_BIN:$PATH
-	seconds=`perl -e 'print int(time);' 2>/dev/null`
+	seconds=`printf '%(%s)T' now`
+	if [[ -z "$seconds" ]] ; then
+		# Unfortunately, solaris date doesnt do '%s', so try perl first.
+		# It's more consistent.
+		seconds=`perl -e 'print int(time);' 2>/dev/null`
+	fi
 	if [[ -z "$seconds" ]] ; then
 		# attempt fallback if no perl present (eg: stock FreeBSD)
 		seconds=`date +%s`
@@ -596,7 +600,7 @@ zrep_status(){
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
 			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
-			date=`perl -e 'use POSIX qw(strftime); print strftime "%Y/%m/%d-%H:%M:%S",localtime('$sentseconds');' 2>/dev/null`
+			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" #$sentseconds`
 			vdate=${date%:*}
 			fi
 
