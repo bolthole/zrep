@@ -150,3 +150,9 @@ version 1.7.6
 	added ZREP_SEND_FLAGS as separate tunable
 	added zrep_uptodate
 
+version 1.7.7
+	minor output cleanup
+	removed dependancy on perl for timestamps
+	improved ZFS feature detection
+	added resume support
+	fixed ZREPTAG bug
