@@ -262,10 +262,12 @@ else
 		# This is probably nested under the create check, because we
 		# only use recv -o, right after using create -o.
 		# However, we now ALWAYS use create -o, so.. may be unneccesary
-		# 
+		# to nest
 		# Skip zfs that uses recv -o origin
-		grep 'rec[ev].*-o origin' $zrep_checkfile >/dev/null  ||
+		if ! grep 'rec[ev].*-o origin' $zrep_checkfile >/dev/null &&
+		     grep 'rec[ev].*-o '       $zrep_checkfile >/dev/null ; then
 		     Z_HAS_REC_O=1 # can use recv -o
+		fi
 	fi
 	if grep 'set .*snapshot' $zrep_checkfile >/dev/null ;then
 		Z_HAS_SNAPPROPS=1 # can set properties on snapshots
