@@ -8,6 +8,14 @@ zrep:	$(ZSOURCE)
 	      {print}' zrep_top > $@
 	chmod 0755 $@
 
+
+# detect is a test util to see if zfs feature detect works
+detect:	detect_test zrep_vars
+	nawk '$$1 == "AWKinclude" {system ("cat "$$2);next;} \
+	      {print}' detect_test > $@
+	chmod 0755 $@
+
+
 save:
 	cp -p $(ZSOURCE) Makefile SAVE
 

@@ -1,0 +1,10 @@
+#!/bin/ksh -p
+
+# For more detailed documentation, see zrep.txt or zrep.overview.txt
+ZREP_VERSION=1.7.7
+
+_ZREP_CHECKFILE=zfs-help.txt
+echo hardcoding checkfile to $_ZREP_CHECKFILE
+
+######## start of included files from zrep_top here
+AWKinclude zrep_vars
