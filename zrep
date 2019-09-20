@@ -223,7 +223,8 @@ case `id` in
 	ZREP_RUNDIR=${ZREP_RUNDIR:-/tmp}
 	;;
 esac
-zrep_checkfile=$ZREP_RUNDIR/zrep.check.$$
+# allow override, for code test utility
+zrep_checkfile=${_ZREP_CHECKFILE:-$ZREP_RUNDIR/zrep.check.$$}
 
 
 zfs >$zrep_checkfile 2>&1 
