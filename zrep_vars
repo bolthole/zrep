@@ -60,10 +60,8 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 #   If your system supports it, then adding -c means that
 #   compressed filesystems will be sent in compressed form, rather
 #   then autouncompressing
-# Note that at the current time, this does NOT get used, for
-#   the initial "zrep init" zfs send. If this gets reported as
-#   a problem, that may change
-#ZREP_SEND_FLAGS=-c
+#    -raw is sometime used for encrypted filesystems
+#ZREP_SEND_FLAGS=-c -raw
 
 
 # There are two types of zfs incremental snapshots.
