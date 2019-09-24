@@ -159,14 +159,25 @@ case "$1" in
 		;;
 	refresh)	# yes keep this in this order
 		shift
-		if [[ "$1" == "-f" ]] ; then
-			shift
-			ZREP_FORCE=-f
-		fi
-		if [[ "$1" == "-v" ]] ; then
-			shift
-			ZREP_VERBOSE=yes
-		fi
+		while  [ "$1" != "" ] ; do
+			case $1 in
+				"-f")
+				shift
+				ZREP_FORCE=-f
+				;;
+				"-v")
+				shift
+				ZREP_VERBOSE=yes
+				;;
+				"-r")
+				shift
+				ZREP_RESUME=yes
+				;;
+				*)
+				break
+				;;
+			esac
+		done
 		zrep_refresh "$@"
 		;;
 	status|-s)

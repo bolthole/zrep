@@ -244,7 +244,7 @@ _snapandsync(){
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 # This is the level that calls zfs directly.
-# see also _refreshpull
+# see also _refreshpull, since it also calls directly.
 _sync(){
 	typeset force verbose
 	typeset token recv_s
@@ -255,7 +255,7 @@ _sync(){
 	if [[ "$ZREP_VERBOSE" != "" ]] ; then
 		verbose=-v
 	fi
-	if [[ "$ZREP_TOKEN" != "" ]] ; then
+	if [[ "$ZREP_RESUME" != "" ]] ; then
 		recv_s=-s
 	fi
 
@@ -290,7 +290,7 @@ _sync(){
 
 	print sending $newsnap to $desthost:$destfs
 
-	if [[ "$ZREP_TOKEN" != "" ]] ; then
+	if [[ "$ZREP_RESUME" != "" ]] ; then
 		token=`zrep_ssh $desthost $ZFSGETLVAL receive_resume_token $destfs`
 		if [[ "$token" != "" ]] ; then
 			token="-t $token"
@@ -494,6 +494,8 @@ zrep_sync(){
 
 
 
+# Usage: zrep_refresh fsname
+#
 # zrep_refresh is a "pull" version of "zrep_sync"
 # The concept is a bit of a hack.
 # It primarily exists so people can run a secure backup server, that
@@ -530,7 +532,7 @@ zrep_refresh(){
 	fi
 
 	if [[ "$1" == "-r" ]] ; then
-		export Z_RESUME=1
+		export ZREP_RESUME=1
 		shift
 	fi
 
@@ -573,12 +575,15 @@ zrep_refresh(){
 	typeset	senttimeprop="`_gensentprop`"
 
 	_debugprint refresh step 2: Pulling $newsnap
+	if [[ "$ZREP_RESUME" != "" ]] ; then
+		token=`$ZFSGETLVAL receive_resume_token $destfs`
+	fi
 
 	if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap" \
+		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap" $token \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap ${Z_F_OUT}" |
+		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT}" |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
@@ -607,10 +612,17 @@ zrep_refresh(){
 # This routine is definitely not supposed to be user visible
 #   .. eh... maybe someday. but initial design is "private"
 #
+# Note that this is only called on a per-filesystem name
+#
 # Syntax:  _refreshpull fs/name [optional resume token]
 #
 _refreshpull(){
 	typeset fs snapname lastsent latest verbose
+	typeset token
+
+	if [[ "$2" != "" ] ; then
+		token="-t $2"
+	fi
 
 	if [[ "$ZREP_VERBOSE" != "" ]] ; then
 		verbose=-v
@@ -655,7 +667,7 @@ _refreshpull(){
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
 	fi
 
-	zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $latest
+	zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $latest
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
