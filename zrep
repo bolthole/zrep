@@ -1909,7 +1909,7 @@ _refreshpull(){
 	typeset fs snapname lastsent latest verbose
 	typeset token
 
-	if [[ "$2" != "" ] ; then
+	if [[ "$2" != "" ]] ; then
 		token="-t $2"
 	fi
 
