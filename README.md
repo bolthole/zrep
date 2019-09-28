@@ -1,4 +1,4 @@
-# zrep overview
+# ZREP overview
 ZREP is a ZFS based replication and failover script from bolthole.com
 
 Got ZFS on two systems? Want to have (almost) idiotproof replication and master/servant switching between them?
