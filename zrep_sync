@@ -247,7 +247,7 @@ _snapandsync(){
 # see also _refreshpull, since it also calls directly.
 _sync(){
 	typeset force verbose
-	typeset token recv_s
+	typeset token="" recv_s=""
 	
 	if [[ "$ZREP_FORCE" == "-f" ]] ; then
 		force=-F
@@ -291,10 +291,7 @@ _sync(){
 	print sending $newsnap to $desthost:$destfs
 
 	if [[ "$ZREP_RESUME" != "" ]] ; then
-		token=`zrep_ssh $desthost $ZFSGETLVAL receive_resume_token $destfs`
-		if [[ "$token" != "" ]] ; then
-			token="-t $token"
-		fi
+		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
 	fi
 
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
@@ -303,12 +300,23 @@ _sync(){
 	# other than zrep_init, this should be the ONLY place we do a send
 	#   Sigh. but now we also do in _refreshpull
 	if [[ "$BBCP" != "" ]] ; then
-	        SENDCMD="zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap"
+
+		if [[ "$token" != "" ]] ; then
+			SENDCMD="zfs send $verbose -t $token ${ZREP_RESUME_FLAGS}"
+		else 
+			SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap"
+
+		fi
 		$BBCP -N io "$SENDCMD" \
 		   "$desthost:zfs recv $recv_s $force $destfs"
 	else
-		eval zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
-		   zrep_ssh $desthost "${Z_F_IN} zfs recv $recv_s $force $destfs"
+		if [[ "$token" != "" ]] ; then
+			eval zfs send ${ZREP_RESUME_FLAGS} -t $token  ${Z_F_OUT} | 
+			   zrep_ssh $desthost "${Z_F_IN} zfs recv $recv_s $force $destfs"
+		else
+			eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+			   zrep_ssh $desthost "${Z_F_IN} zfs recv $recv_s $force $destfs"
+		fi
 	fi
 
 	# I rename this to _unsent rather than just delete, in case people are using zrep
@@ -576,11 +584,11 @@ zrep_refresh(){
 
 	_debugprint refresh step 2: Pulling $newsnap
 	if [[ "$ZREP_RESUME" != "" ]] ; then
-		token=`$ZFSGETLVAL receive_resume_token $destfs`
+		token=`$ZFSGETVAL receive_resume_token $destfs`
 	fi
 
 	if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap" $token \
+		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
 		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT}" |
@@ -618,10 +626,10 @@ zrep_refresh(){
 #
 _refreshpull(){
 	typeset fs snapname lastsent latest verbose
-	typeset token
+	typeset token=""
 
 	if [[ "$2" != "" ]] ; then
-		token="-t $2"
+		token="$2"
 	fi
 
 	if [[ "$ZREP_VERBOSE" != "" ]] ; then
@@ -667,7 +675,11 @@ _refreshpull(){
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
 	fi
 
-	zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $latest
+	if [[ "$token" != "" ]] ; then
+		zfs send ${ZREP_RESUME_FLAGS} -t $token 
+	else
+		zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $latest
+	fi
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
