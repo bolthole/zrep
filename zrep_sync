@@ -292,6 +292,7 @@ _sync(){
 
 	if [[ "$ZREP_RESUME" != "" ]] ; then
 		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
+		if [[ "$token" == "-" ]] ; then token="" ; fi
 	fi
 
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
@@ -585,6 +586,7 @@ zrep_refresh(){
 	_debugprint refresh step 2: Pulling $newsnap
 	if [[ "$ZREP_RESUME" != "" ]] ; then
 		token=`$ZFSGETVAL receive_resume_token $destfs`
+		if [[ "$token" == "-" ]] ; then token="" ; fi
 	fi
 
 	if [[ "$BBCP" != "" ]] ; then
