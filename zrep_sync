@@ -241,6 +241,9 @@ _snapandsync(){
 
 }
 
+
+
+
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 # This is the level that calls zfs directly.
@@ -303,7 +306,7 @@ _sync(){
 	if [[ "$BBCP" != "" ]] ; then
 
 		if [[ "$token" != "" ]] ; then
-			SENDCMD="zfs send $verbose -t $token ${ZREP_RESUME_FLAGS}"
+			SENDCMD="zfs send -t $token ${ZREP_RESUME_FLAGS}"
 		else 
 			SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap"
 
@@ -323,14 +326,18 @@ _sync(){
 	# I rename this to _unsent rather than just delete, in case people are using zrep
 	# for the DUAL use, of replication,
 	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
+	# But if resume support enabled, should auto-retry next time sync called
 	if [[ $? -ne 0 ]] ; then
-		if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
-			zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
-			zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
-		else
-			zfs destroy ${Z_SNAP_R} ${newsnap}
-			zrep_errquit Problem doing sync for $newsnap.
+		if [[ "$ZREP_RESUME" == "" ]] ; then
+			if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
+				zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
+				zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
+			else
+				zfs destroy ${Z_SNAP_R} ${newsnap}
+			fi
 		fi
+		
+		zrep_errquit Problem doing sync for $newsnap.
 	fi
 
 
