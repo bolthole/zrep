@@ -1117,6 +1117,7 @@ setfsconfigs(){
 zrep_init(){
 	typeset srcfs="$1" desthost="$2" destfs="$3" snap check vol=0
 	typeset mountpoint vflags verbose
+	typeset token
 
 	if [[ "$ZREP_VERBOSE" != "" ]] ; then
 		verbose=-v
@@ -1134,8 +1135,39 @@ zrep_init(){
 		if [[ "$check" != "" ]] ; then
 			zrep_errquit "${ZREPTAG}:master detected!!"
 		fi
-		zrep_errquit "To re-initialize, first use zrep clear $srcfs"
+
+		if [[ "$ZREP_RESUME" == "" ]] ; then
+			zrep_errquit "To re-initialize, first use zrep clear $srcfs"
+		fi
+
+		# if it exists already, presume we need to resume an init.
+		# if we cant, then its an error.
+
+		
+		
+		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
+		if [[ "$token" == "-" ]] ; then token="" ; fi
+		if [[ "$token" == "" ]] ; then
+			zrep_errquit Partial init of $src detected but no resume token found. Suggest you zrep clear and start again
+		fi
+
+		print "Partially complete init detected. Attempting to resume send"
+
+		if [[ "$BBCP" != "" ]] ; then
+			SENDCMD="zfs send -t $token ${ZREP_RESUME_FLAGS}"
+			$BBCP -N io "$SENDCMD" \
+			   "$desthost:zfs recv $destfs"
+
+		else
+			eval zfs send ${ZREP_RESUME_FLAGS} -t $token  ${Z_F_OUT} | 
+			   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
+		fi		
+		if [[ $? -ne 0 ]] ; then
+			zrep_errquit resume send of zrep init $srcfs failed
+		fi
 	fi
+
+
 	check="`$ZFSGETVAL type $srcfs`"
 	if [[ "$check" == "volume" ]] ; then
 		vol=1
@@ -1155,48 +1187,58 @@ zrep_init(){
 	fi
 	
 
-	print Setting properties on $srcfs
-	setfsconfigs $srcfs $desthost $destfs
-
-	#setfsconfigs may do some "smarts" to adjust value, so get it again.
-	# yes only check for LOCAL this time. Paranoia....
-	destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
-
 	#get this for later
 	mountpoint=`$ZFSGETLVAL mountpoint $srcfs`
 
-	if (( Z_HAS_REC_O )) ; then
-		READONLYPROP="-o readonly=on"
-	else
-		READONLYPROP=""
-		print Warning: zfs recv lacking -o readonly
-		print Creating readonly destination filesystem as separate step
-		zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
-	fi
+	#  Make this section conditional, so that we keep shared codepath for completion
+	# of initial sync.
+	# This is actually  the "normal" snapshot and sync path.
+	# 
+	if [[ "$token" == "" ]] ; then
+	
+		if [[ "$ZREP_RESUME" != "" ]] ; then
+			recv_s=-s
+		fi
 
-	snap="${srcfs}@${ZREPTAG}_000000"
-	print Creating snapshot $snap
-	zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
+		print Setting zrep properties on $srcfs
+		setfsconfigs $srcfs $desthost $destfs
 
-	# Note that we may not want to use -p for normal zrep syncs
-	# We also should not use -F for normal recv. See workflow.txt
-	# Note: we may have to reset readonly=on, if we used -p on send...
-	#
-	print Sending initial replication stream to $desthost:$destfs
-	if (( Z_HAS_REC_U )) ; then
+		#setfsconfigs may do some "smarts" to adjust value, so get it again.
+		# yes only check for LOCAL this time. Paranoia....
+		destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
+
+		if (( Z_HAS_REC_O )) ; then
+			READONLYPROP="-o readonly=on"
+		else
+			READONLYPROP=""
+			print Warning: zfs recv lacking -o readonly
+			print Creating readonly destination filesystem as separate step
+			zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
+		fi
+
+		snap="${srcfs}@${ZREPTAG}_000000"
+		print Creating snapshot $snap
+		zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
+
+		# Note that we may not want to use -p for normal zrep syncs
+		# We also should not use -F for normal recv. See workflow.txt
+		# Note: we may have to reset readonly=on, if we used -p on send...
+		#
+		print Sending initial replication stream to $desthost:$destfs
+		if (( Z_HAS_REC_U )) ; then
 		# This is the nice, clean, modern codepath, to send
 		# zrep settings over automatically at first init.
 		# Note that we use "zfs send -p" to preserve properties.
 		#
 
-		if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap" \
-		    "$desthost:zfs recv -u  $READONLYPROP -F $destfs"
+			if [[ "$BBCP" != "" ]] ; then
+			$BBCP -N io "zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap" \
+			    "$desthost:zfs recv -u  $READONLYPROP $recv_s -F $destfs"
+			else
+			eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap ${Z_F_OUT}|
+				zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP $recv_s -F $destfs"
+			fi
 		else
-		eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap ${Z_F_OUT}|
-			zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP -F $destfs"
-		fi
-	else
 		## arg.. Update your systems!!
 		# without -u, risky to use send -p if mountpoint set.
 		#  (So we cant avoid it potentially WRONGLY setting mountpoint)
@@ -1205,17 +1247,20 @@ zrep_init(){
 		#  there are too many code branches here already, so too bad!
 		#  Update your system! :p )
 		#
-		if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap" \
-		    "$desthost:zfs recv $READONLYPROP -F $destfs"
-		else
-		eval zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap ${Z_F_OUT}|
-		  zrep_ssh $desthost "${Z_F_IN} zfs recv $READONLYPROP -F $destfs"
+			if [[ "$BBCP" != "" ]] ; then
+			$BBCP -N io "zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap" \
+			    "$desthost:zfs recv $READONLYPROP $recv_s -F $destfs"
+			else
+			eval zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap ${Z_F_OUT}|
+			  zrep_ssh $desthost "${Z_F_IN} zfs recv $READONLYPROP $recv_s -F $destfs"
+			fi
 		fi
-	fi
-	if [[ $? -ne 0 ]] ; then
-		clearquit $srcfs "Error transferring $snap to $desthost:$destfs. Resetting"
-	fi
+		if [[ $? -ne 0 ]] ; then
+			clearquit $srcfs "Error transferring $snap to $desthost:$destfs. Resetting"
+		fi
+
+	fi   #token
+
 
 	# Successful initial sync! Woo! okay record that, etc.
 	# ... after stupid old-zfs-compat junk, that is
@@ -1538,6 +1583,9 @@ _snapandsync(){
 
 }
 
+
+
+
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 # This is the level that calls zfs directly.
@@ -1600,7 +1648,7 @@ _sync(){
 	if [[ "$BBCP" != "" ]] ; then
 
 		if [[ "$token" != "" ]] ; then
-			SENDCMD="zfs send $verbose -t $token ${ZREP_RESUME_FLAGS}"
+			SENDCMD="zfs send -t $token ${ZREP_RESUME_FLAGS}"
 		else 
 			SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap"
 
@@ -1620,14 +1668,18 @@ _sync(){
 	# I rename this to _unsent rather than just delete, in case people are using zrep
 	# for the DUAL use, of replication,
 	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
+	# But if resume support enabled, should auto-retry next time sync called
 	if [[ $? -ne 0 ]] ; then
-		if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
-			zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
-			zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
-		else
-			zfs destroy ${Z_SNAP_R} ${newsnap}
-			zrep_errquit Problem doing sync for $newsnap.
+		if [[ "$ZREP_RESUME" == "" ]] ; then
+			if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
+				zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
+				zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
+			else
+				zfs destroy ${Z_SNAP_R} ${newsnap}
+			fi
 		fi
+		
+		zrep_errquit Problem doing sync for $newsnap.
 	fi
 
 
