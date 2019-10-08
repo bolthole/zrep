@@ -112,6 +112,11 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # But you could theoretically set this directly instead if you prefer
 #ZREP_CHANGEDONLY=yes
 
+
+# This only gets used at init time
+ZREP_SAVE_COUNT=${ZREP_SAVE_COUNT:-5}
+
+
 #########################################################################
 #########################################################################
 # Everything else below here, should not need to be touched. 
@@ -302,7 +307,6 @@ rm $zrep_checkfile
 
 
 Z_LOCK_RETRY=${Z_LOCK_RETRY:-10}  # default 10 second  retry, 1 per sec
-Z_SAVE_COUNT=${Z_SAVE_COUNT:-5}
 
 # This is named like a global override. and CAN be overridden by user.
 # But should only be used in zrep_vars module
@@ -1104,7 +1108,7 @@ setfsconfigs(){
 	zfs set ${ZREPTAG}:src-host=$srchost		$fsname
 	zfs set ${ZREPTAG}:dest-fs=$destfs		$fsname
 	zfs set ${ZREPTAG}:dest-host=$desthost		$fsname
-	zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$fsname
+	zfs set ${ZREPTAG}:savecount=$ZREP_SAVE_COUNT	$fsname
 }
 
 
@@ -1273,7 +1277,7 @@ zrep_init(){
 		zrep_ssh $desthost zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-fs=$destfs $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-host=$desthost $destfs
-		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$Z_SAVE_COUNT	$destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$ZREP_SAVE_COUNT $destfs
 
 	fi
 
