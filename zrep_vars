@@ -87,6 +87,10 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 # But you can set it if you want
 #ZREP_VERBOSE=yes
 
+# Some odd people like to configure a non-root user for zrep,
+# and not give it expire permissions.
+# Well.. okay then...
+#ZREP_SKIP_EXPIRE=1
 
 # If you want to override uname -n, with an official
 #  canonical name for zrep:src-host, use this environment variable when 

@@ -93,6 +93,10 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 # But you can set it if you want
 #ZREP_VERBOSE=yes
 
+# Some odd people like to configure a non-root user for zrep,
+# and not give it expire permissions.
+# Well.. okay then...
+#ZREP_SKIP_EXPIRE=1
 
 # If you want to override uname -n, with an official
 #  canonical name for zrep:src-host, use this environment variable when 
@@ -2057,6 +2061,12 @@ _refreshpull(){
 
 # INTERNAL routine. For external-facing routine, see zrep_expire
 _expire(){
+
+	if [[ "$ZREP_SKIP_EXPIRE" != "" ]] ; then
+		_debugprint _expire doing nothing since ZREP_SKIP_EXPIRE set
+		return
+	fi
+
 	typeset savecount currcount lastsent remotehost remotefs sanity
 	typeset tmpfile=$ZREP_RUNDIR/zrep_expire.$$
 	typeset local=0 master
@@ -2146,6 +2156,10 @@ _expire(){
 #
 zrep_expire()
 {
+	if [[ "$ZREP_SKIP_EXPIRE" != "" ]] ; then
+		zrep_errquit 'You explicitly called zrep expire.. and also have ZREP_SKIP_EXPIRE set?? How about no.'
+	fi
+
 	typeset local
 	if [[ "$1" == "-L" ]] ; then
 		local="-L"
