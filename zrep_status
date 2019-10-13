@@ -219,6 +219,16 @@ zrep_list_snaps(){
 	
 }
 
+# Given a filename, prints out full snapshot name of last successfully synced snap
+zrep_lastsent(){
+	if [[ "$1" == "" ]] ; then
+		_errprint ERROR: zrep uptodate requires the name of a zrep managed fs
+		exit 1
+	fi
+
+	print `getlastsnapsent $1`
+
+}
 
 # Give a filesystem name. 
 #  Gets last sent snapshot, and determines if there have
