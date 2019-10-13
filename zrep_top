@@ -15,29 +15,32 @@ AWKinclude zrep_failover
 usage(){
 	print zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
 	print in an ongoing basis.
-	print ""
-	print "  Philip Brown, 2012-2017"
-	print ""
+	print 
+	print "  Philip Brown, 2012-2019"
+	print 
 	print Simple usage summary:
 	print 'zrep (init|-i) [-v] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
 	print 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
 	print 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
-	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
 	print 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
-	print 'zrep (list|-l) [-Lv]  [fs/names]'
-	print 'zrep (list|-l) -s     [fs/names]  -- list snapshots' 
-	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
-	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
-	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	print 'zrep failover [-L] ZFS/fs'
 	print 'zrep takeover [-L] ZFS/fs'
+	print 
+	print "Status and side operations"
+	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
+	print 'zrep (list|-l) [-Lv]  [fs/names]'
+	print 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
+	print 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
+	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
 	print 'zrep version'
 	print 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
+	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
+	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	print
-	print '   -q option says to Quietly ignore locked filesystems that have synced'
-	print '      more recently than the given amount of seconds'
+	print '   -q option to sync says to Quietly ignore locked filesystems
+	print '    that have synced more recently than the given amount of seconds'
 	print
 	print 'Paired commands for high-transaction systems:'
 	print '   zrep snaponly (ZFS/fs ... |all)'
@@ -52,7 +55,7 @@ usage(){
 	print ' More detailed examples can be found at:'
 	print http://www.bolthole.com/solaris/zrep/zrep.documentation.html
 	print ''
-	print 'See the above documentation for details on using the -t flag'
+	print 'See the above documentation for details on using the -t flag to use zrep tags'
 }
 
 #
@@ -187,6 +190,10 @@ case "$1" in
 	list|-l)
 		shift
 		zrep_list "$@"
+		;;
+	lastsent)
+		shift
+		zrep_lastsent "$@"
 		;;
 	failover)
 		shift
