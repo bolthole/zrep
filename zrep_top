@@ -39,7 +39,7 @@ usage(){
 	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	print
-	print '   -q option to sync says to Quietly ignore locked filesystems
+	print '   -q option to sync says to Quietly ignore locked filesystems'
 	print '    that have synced more recently than the given amount of seconds'
 	print
 	print 'Paired commands for high-transaction systems:'
