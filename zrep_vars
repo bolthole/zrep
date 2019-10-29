@@ -264,7 +264,7 @@ else
 	if grep 'receive[ |].*-[a-zA-Z]*x' $zrep_checkfile >/dev/null ;then
 		Z_HAS_X=1	  # can use recv -x
 	fi
-	if grep 'receive .*-[a-zA-Z]*u' $zrep_checkfile >/dev/null ;then
+	if grep 'receive[ |].*-[a-zA-Z]*u' $zrep_checkfile >/dev/null ;then
 		Z_HAS_REC_U=1	  # can use recv -u
 	fi
 	# This bit is unfortunately ugly. Two problems:
