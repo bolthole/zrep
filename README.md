@@ -19,6 +19,6 @@ Many, many more options and features are documented, at
 
  http://www.bolthole.com/solaris/zrep/zrep.documentation.html
 
-Note that to enable bash completion, an additional download is needed;
+Note that to enable bash commandline completion, an additional download is needed;
 
 sudo wget -O /etc/bash_completion.d/zrep https://raw.githubusercontent.com/bolthole/zrep-completion/master/src/zrep
