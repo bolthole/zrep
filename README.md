@@ -6,7 +6,7 @@ Install zrep with a single download and you're almost ready to go.
 
 ## Super-Quick-and-dirty quickstart
 
-Step 1: wget https://raw.githubusercontent.com/bolthole/zrep/master/src/zrep  (and make it executable of course)
+Step 1: wget https://raw.githubusercontent.com/bolthole/zrep/master/zrep (and make it executable of course)
 
 Step 2: zrep -i pool1/prodfs host2 destpool
 
