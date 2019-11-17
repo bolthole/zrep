@@ -1764,6 +1764,7 @@ zrep_synconly(){
 
 		zrep_unlock_fs $srcfs
 
+		shift
 	done
 }
 
