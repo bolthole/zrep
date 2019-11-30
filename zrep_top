@@ -1,7 +1,9 @@
 #!/bin/ksh -p
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.8
+
+# note to self: always make this 3 fields
+ZREP_VERSION=1.8.0
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars

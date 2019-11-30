@@ -3,11 +3,15 @@
 
 ZSOURCE=zrep_top zrep_vars zrep_status zrep_snap zrep_sync zrep_failover
 
+all:	zrep zrep.spec
+
 zrep:	$(ZSOURCE)
 	nawk '$$1 == "AWKinclude" {system ("cat "$$2);next;} \
 	      {print}' zrep_top > $@
 	chmod 0755 $@
 
+zrep.spec:	zrep_top
+	sed "s/VERSION/`sed -n 's/^ZREP_VERSION=//p' zrep_top`/" zrep.spec.tmpl >zrep.spec
 
 # detect is a test util to see if zfs feature detect works
 detect:	detect_test zrep_vars
