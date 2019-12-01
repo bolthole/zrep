@@ -745,7 +745,9 @@ _expire(){
 			zrep_errquit corrupted zrep data: no last sent detected. Stopping expire
 		fi
 
-		getallsnaps $1 |egrep -v $lastsent >$tmpfile
+		# Note that getallsnaps does an explicit sort already.
+		# We want to not expire lastsent, OR any later unsent ones!
+		getallsnaps $1 | awk  '/'$lastsent'/{exit} {print}'  >$tmpfile
 		savecount=$((savecount-1))
 	else
 		getallsnaps $1 >$tmpfile

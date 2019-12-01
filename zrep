@@ -1121,7 +1121,6 @@ clearquit(){
 
 
 # Shared internal routine.
-#  (internal only to zrep_snap, even!)
 #
 # Set the to/from properties on a fs for zrep
 # Called by zrep_init  and zrep_changeconfig
@@ -2170,7 +2169,9 @@ _expire(){
 			zrep_errquit corrupted zrep data: no last sent detected. Stopping expire
 		fi
 
-		getallsnaps $1 |egrep -v $lastsent >$tmpfile
+		# Note that getallsnaps does an explicit sort already.
+		# We want to not expire lastsent, OR any later unsent ones!
+		getallsnaps $1 | awk  '/'$lastsent'/{exit} {print}'  >$tmpfile
 		savecount=$((savecount-1))
 	else
 		getallsnaps $1 >$tmpfile
