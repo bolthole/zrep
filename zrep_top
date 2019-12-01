@@ -31,6 +31,7 @@ usage(){
 	print 
 	print "Status and side operations"
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
+	print 'zrep (status|-s) -m [ZFS/fs]'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
 	print 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
 	print 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
