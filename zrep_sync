@@ -6,7 +6,7 @@
 
 
 
-## file-internal routine that gets used a lot in zrep_sync
+## file-internal routine that gets used a lot in zrep_sync. but not always
 _gensentprop(){
 	typeset timeinsec=`zrep_gettimeinseconds`
 	print "${ZREPTAG}:sent=$timeinsec"
@@ -218,14 +218,14 @@ _snapandsync(){
 	if [[ "$ZREP_CHANGEDONLY" != "" ]] ; then
 		if _sync_nochanges $sentsnap ; then
 		_debugprint No changes found in $srcfs. Updating timestamp only
-		typeset timeinsec=`zrep_gettimeinseconds`
-		typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
 
 		if (( Z_HAS_SNAPPROPS )) ; then
+			typeset senttimeprop="`_gensentprop`"
 			zfs set $senttimeprop  ${sentsnap}
 		else
 			#note that this is only for old-ZFS compatibility.
 			# We dont really want to use this style if possible!
+			typeset timeinsec=`zrep_gettimeinseconds`
 			zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
 		fi
 		return 0
@@ -288,6 +288,7 @@ _sync(){
 	fi
 
 	snapname=${newsnap#*@}
+	# do this manually, not using gensentprop because we want consistant timestamp
 	typeset timeinsec=`zrep_gettimeinseconds`
 	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
 
@@ -698,6 +699,17 @@ _refreshpull(){
 
 	zfs set $senttimeprop $latest
 	zrep_unlock_fs $fs
+}
+
+
+# usage:
+#  snap_olderthan  snapname seconds
+# returns true (0) if snap older than given nunmber of seconds
+#  
+snap_olderthan(){
+	# work in progress
+	echo not done yet
+	exit 1
 }
 
 # _expire: 
