@@ -592,11 +592,15 @@ zrep_gettimeinseconds(){
 # Note that the date given is time of SNAPSHOT, not time sync completed.
 #
 zrep_status(){
-	typeset check fs srcfs jdesthost destfs date lastsnap verbose=0 vdate=""
+	typeset check fs srcfs desthost destfs date lastsynced
+	typeset verbose=0 vdate="" monitorr=0
 	typeset printall=0
 	
 	if [[ "$1" == "-v" ]] ; then
 		verbose=1 ; shift
+	fi
+	if [[ "$1" == "-m" ]] ; then
+		monitor=1 ; shift
 	fi
 
 	if [[ "$1" == "" ]] ; then
@@ -614,19 +618,28 @@ zrep_status(){
 			zrep_errquit "$fs is not a zrep registered filesystem"
 		fi
 
-		lastsnap=`getlastsnapsent $fs`
-		if [[ "$lastsnap" == "" ]] ; then
+		if ((monitor)) ; then
+			# have to allow for ONE unsent, since it might be in progress
+			typeset count=`getunsentcount $fs`
+			if [[ "$count" -gt 1 ]] ; then
+				echo WARNNING: unset snapshot count at $count
+			fi
+			continue
+		fi
+
+		lastsynced=`getlastsnapsent $fs`
+		if [[ "$lastsynced" == "" ]] ; then
 			date="[NEVER]"
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
-			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
+			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
 			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" "#$sentseconds"`
 			vdate=${date%:*}
 			fi
 
 			#This is also a fallback for no-perl FreeBSD systems
 			if [[ "$vdate" == "" ]] ; then
-			date=`$ZFSGETVAL creation $lastsnap`
+			date=`$ZFSGETVAL creation $lastsynced`
 			vdate=${date#????}
 			fi
 		fi
@@ -852,13 +865,19 @@ zrep_uptodate(){
 ######################################################################
 
 
+#pass in a zrep ZFS snapshot name. strip our our sequence number and echo in back
+_getseqnum(){
+	echo "$1" | sed 's/.*@'${ZREPTAG}'_\(......\).*/\1/'
+}
+
 # By observation, 'zfs list' shows snapshots order of creation.
 # last listed, should be last in sequence.
 # But, dont take chances!!
 getlastsequence(){
 	typeset lastval
 	#remember, filesystems can have '_' in them
-	getlastsnap $1|sed 's/.*@'${ZREPTAG}'_\(......\).*/\1/'
+	_getseqnum `getlastsnap $1`
+	
 }
 
 # prints out last snapshot zrep created, going purely by sequence.
@@ -885,6 +904,37 @@ getlastsnapsent(){
 	# Fallback method, for backwards compat with older ZFS code,
 	# since it cant set properties on snapshots
 	zfs get  -H -o value -s local ${ZREPTAG}:lastsent $1
+}
+
+# return a number, which is the difference between the lastsnapshot counter, and
+# the last successfully synced snapshot counter.
+# In theory, can only be positive.
+# 
+getunsentcount(){
+	typeset lastsynced lastsnap lastsyncedseq lastsnapseq
+	lastsynced=`getlastsnapsent $1`
+	lastsnap=`getlastsnap $1`
+
+	if [[ "$lastsynced" == "$lastsnap" ]] ; then
+		return 1
+	fi
+
+	lastsyncedseq=`getseqnum $lastsynced`
+	lastsnapseq=`getseqnum $lastsnap`
+
+	lastsyncedseq=$((16#$lastsyncedseq))
+	lastsnapseq=$((16#$lastsnapseq))
+
+
+	if [[ "$lastsyncedseq -lt 1 ]] ; then
+		zrep_errquit Error: cannot parse $lastsynced
+	fi
+	if [[ "$lastsnapseq -lt 1 ]] ; then
+		zrep_errquit Error: cannot parse $lastsnap
+	fi
+
+	print $(( $lastsnapseq - $lastsyncedseq ))
+
 }
 
 # outputs time in seconds, of when the last successful sync for the
@@ -2410,6 +2460,7 @@ usage(){
 	print 
 	print "Status and side operations"
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
+	print 'zrep (status|-s) -m [ZFS/fs]'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
 	print 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
 	print 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
