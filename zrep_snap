@@ -20,13 +20,19 @@
 ######################################################################
 
 
+#pass in a zrep ZFS snapshot name. strip our our sequence number and echo in back
+_getseqnum(){
+	echo "$1" | sed 's/.*@'${ZREPTAG}'_\(......\).*/\1/'
+}
+
 # By observation, 'zfs list' shows snapshots order of creation.
 # last listed, should be last in sequence.
 # But, dont take chances!!
 getlastsequence(){
 	typeset lastval
 	#remember, filesystems can have '_' in them
-	getlastsnap $1|sed 's/.*@'${ZREPTAG}'_\(......\).*/\1/'
+	_getseqnum `getlastsnap $1`
+	
 }
 
 # prints out last snapshot zrep created, going purely by sequence.
@@ -53,6 +59,37 @@ getlastsnapsent(){
 	# Fallback method, for backwards compat with older ZFS code,
 	# since it cant set properties on snapshots
 	zfs get  -H -o value -s local ${ZREPTAG}:lastsent $1
+}
+
+# return a number, which is the difference between the lastsnapshot counter, and
+# the last successfully synced snapshot counter.
+# In theory, can only be positive.
+# 
+getunsentcount(){
+	typeset lastsynced lastsnap lastsyncedseq lastsnapseq
+	lastsynced=`getlastsnapsent $1`
+	lastsnap=`getlastsnap $1`
+
+	if [[ "$lastsynced" == "$lastsnap" ]] ; then
+		return 1
+	fi
+
+	lastsyncedseq=`getseqnum $lastsynced`
+	lastsnapseq=`getseqnum $lastsnap`
+
+	lastsyncedseq=$((16#$lastsyncedseq))
+	lastsnapseq=$((16#$lastsnapseq))
+
+
+	if [[ "$lastsyncedseq -lt 1 ]] ; then
+		zrep_errquit Error: cannot parse $lastsynced
+	fi
+	if [[ "$lastsnapseq -lt 1 ]] ; then
+		zrep_errquit Error: cannot parse $lastsnap
+	fi
+
+	print $(( $lastsnapseq - $lastsyncedseq ))
+
 }
 
 # outputs time in seconds, of when the last successful sync for the
