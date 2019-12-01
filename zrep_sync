@@ -703,13 +703,32 @@ _refreshpull(){
 
 
 # usage:
-#  snap_olderthan  snapname seconds
-# returns true (0) if snap older than given nunmber of seconds
-#  
+#  snap_olderthan  snapname minutes
+# returns true (0) if snap older than given number of minutes,
+# based on 'creation' property.
+#  (technically this should work on regular fs as well)
+# 
+# **NOTE**
+# MINUTES, not seconds, because property format looks like this;
+#  $ zfs get -H  creation scratch
+#  scratch creation        Sun Dec  1 21:55 2019   -
+#
 snap_olderthan(){
-	# work in progress
-	echo not done yet
-	exit 1
+	typeset cstamp=`$ZFSGETVAL creation $1`
+	typeset ageinseconds=`printf "%(%s)T" "$cstamp"`
+
+	typeset secondmark=`printf "%(%s)T" "$2 minutes ago"`
+
+	if (( $secondmark <  1 )) ; then
+	 	zrep_errquit  ERROR: snap_olderthan passed invalid minute limit: $2
+	fi
+
+	if (( ageinseconds < secondmark )) ; then
+		return 0
+	fi
+
+
+	return 1
 }
 
 # _expire: 
