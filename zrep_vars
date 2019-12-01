@@ -308,6 +308,7 @@ Z_LOCK_RETRY=${Z_LOCK_RETRY:-10}  # default 10 second  retry, 1 per sec
 
 # This is named like a global override. and CAN be overridden by user.
 # But should only be used in zrep_vars module
+# Note: This path is why you should only give zfs privileges to a SINGLE USER.
 Z_GLOBAL_LOCKFILE=$ZREP_RUNDIR/zrep.lock
 
 if [[ "$Z_GLOBAL_PID" == "" ]] ; then
