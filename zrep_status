@@ -15,11 +15,15 @@
 # Note that the date given is time of SNAPSHOT, not time sync completed.
 #
 zrep_status(){
-	typeset check fs srcfs jdesthost destfs date lastsnap verbose=0 vdate=""
+	typeset check fs srcfs desthost destfs date lastsynced
+	typeset verbose=0 vdate="" monitorr=0
 	typeset printall=0
 	
 	if [[ "$1" == "-v" ]] ; then
 		verbose=1 ; shift
+	fi
+	if [[ "$1" == "-m" ]] ; then
+		monitor=1 ; shift
 	fi
 
 	if [[ "$1" == "" ]] ; then
@@ -37,19 +41,28 @@ zrep_status(){
 			zrep_errquit "$fs is not a zrep registered filesystem"
 		fi
 
-		lastsnap=`getlastsnapsent $fs`
-		if [[ "$lastsnap" == "" ]] ; then
+		if ((monitor)) ; then
+			# have to allow for ONE unsent, since it might be in progress
+			typeset count=`getunsentcount $fs`
+			if [[ "$count" -gt 1 ]] ; then
+				echo WARNNING: unset snapshot count at $count
+			fi
+			continue
+		fi
+
+		lastsynced=`getlastsnapsent $fs`
+		if [[ "$lastsynced" == "" ]] ; then
 			date="[NEVER]"
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
-			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
+			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
 			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" "#$sentseconds"`
 			vdate=${date%:*}
 			fi
 
 			#This is also a fallback for no-perl FreeBSD systems
 			if [[ "$vdate" == "" ]] ; then
-			date=`$ZFSGETVAL creation $lastsnap`
+			date=`$ZFSGETVAL creation $lastsynced`
 			vdate=${date#????}
 			fi
 		fi
