@@ -276,7 +276,6 @@ clearquit(){
 
 
 # Shared internal routine.
-#  (internal only to zrep_snap, even!)
 #
 # Set the to/from properties on a fs for zrep
 # Called by zrep_init  and zrep_changeconfig
