@@ -156,3 +156,7 @@ version 1.7.7
 	improved ZFS feature detection
 	added resume support
 	fixed ZREPTAG bug
+
+version 1.8.0
+	added zrep lastsent
+	bugfixes for resume
