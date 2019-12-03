@@ -45,6 +45,9 @@ getlastsnap(){
 }
 
 # Usage:   getlastsnapsent zpool/FSNAME
+#   note to self: in modern zrep, ALL successfuly synced snapshots have
+#   a timestamp value,   zrep:sent=TIMESTAMPHERE
+#   Thats why the sort and tail is neccessary
 getlastsnapsent(){
 	# arg.  more efficient if we can just return value directly,
 	# but i'm using backwards compat :(
@@ -59,6 +62,22 @@ getlastsnapsent(){
 	# Fallback method, for backwards compat with older ZFS code,
 	# since it cant set properties on snapshots
 	zfs get  -H -o value -s local ${ZREPTAG}:lastsent $1
+}
+
+# HORRIBLY DANGEROUS
+# ONLY should be used by zrep_sentsync.
+# Kind of the inverse to getlastsnapsent. But should NOT use "fallback method" in getlastsnapsent.
+# This is only for zrep_sentsync, which only uses newer method.
+_clearlast(){
+	typeset lastsent
+	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1|tail -1`
+
+	while [[ "$lastsent" != "" ]] ; do
+		_errprint WARNING: clearing sent value from  $lastsent
+		zfs inherit ${ZREPTAG}:sent $lastsent
+		lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1|tail -1`
+	done	
+
 }
 
 # return a number, which is the difference between the lastsnapshot counter, and
