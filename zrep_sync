@@ -15,15 +15,19 @@ _gensentprop(){
 
 # This is a RECOVERY ROUTINE ONLY.
 # I put lots of sanity checking in here, that doesnt make sense to keep
-# with a more general case internal routine
-# Certain people say that for some odd reason on their systems, the 
-# zfs send completes, but zrep gets killed before zrep updates properties.
+# with a more general case internal routine.
+# This exists, because certain people say that for some odd reason on their systems, 
+# the zfs send completes, but zrep gets killed before zrep updates properties.
 # To help people save the time on resyncing hundreds of TB, 
 # give them a way to update the sent property.
+#
 # This only works with newstyle ZFS that allows property setting on snapshots
 # Needs to follow whatever is done in _sync(), after the zfs send
+#  (and therefore getlastsnapsent() as well)
 #
 # Usage:   zrep_sentsync [-L] fs@snap
+#
+# WARNING: If you have nested zrep filesystem below this one.. you just hosed yourself.
 #
 zrep_sentsync(){
 	typeset local=0
@@ -58,13 +62,14 @@ zrep_sentsync(){
 		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
 	fi
 
-	typeset desthost destfs
-	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
-	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
 
+	_clearlast $srcfs
 	typeset	senttimeprop="`_gensentprop`"
 
 	if ((local == 0)) ; then
+		typeset desthost destfs
+		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
 		zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 	fi
 
