@@ -778,7 +778,7 @@ _expire(){
 
 		# Note that getallsnaps does an explicit sort already.
 		# We want to not expire lastsent, OR any later unsent ones!
-		getallsnaps $1 | awk  '/'$lastsent'/{exit} {print}'  >$tmpfile
+		getallsnaps $1 | awk  '$1 == "'$lastsent'"{exit} {print}'  >$tmpfile
 		savecount=$((savecount-1))
 	else
 		getallsnaps $1 >$tmpfile
