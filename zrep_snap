@@ -469,6 +469,13 @@ zrep_init(){
 		print Creating snapshot $snap
 		zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
 
+		# Set --raw zfs send flag for encrypted filesystem, if 
+		# $ZREP_SEND_FLAGS was not already defined.
+		encryption=`$ZFSGETVAL encryption $srcfs`
+		if [[ "$encryption" != "off" ]]; then
+			ZREP_SEND_FLAGS=${ZREP_SEND_FLAGS:---raw}
+		fi
+
 		# Note that we may not want to use -p for normal zrep syncs
 		# We also should not use -F for normal recv. See workflow.txt
 		# Note: we may have to reset readonly=on, if we used -p on send...

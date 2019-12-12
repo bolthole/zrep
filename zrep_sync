@@ -304,6 +304,13 @@ _sync(){
 		if [[ "$token" == "-" ]] ; then token="" ; fi
 	fi
 
+	# Always set --raw zfs send flag for encrypted filesystem, if 
+	# $ZREP_SEND_FLAGS was not already defined.
+	encryption=`$ZFSGETVAL encryption $srcfs`
+	if [[ "$encryption" != "off" ]]; then
+		ZREP_SEND_FLAGS=${ZREP_SEND_FLAGS:---raw}
+	fi
+
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
 	# So we dont do that usually
 
