@@ -1350,7 +1350,7 @@ zrep_init(){
 			fi
 		fi
 		if [[ $? -ne 0 ]] ; then
-			if [[ "$ZREP_RESUME" != "" ]] ; then
+			if [[ "$ZREP_RESUME" == "" ]] ; then
 				clearquit $srcfs "Error transferring $snap to $desthost:$destfs. Resetting"
 			else
 				zrep_errquit "Error transferring $snap to $desthost:$destfs. RESUME set. Not clearing $srcfs"
