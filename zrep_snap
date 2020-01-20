@@ -533,6 +533,13 @@ zrep_init(){
 
 	fi
 
+	if [[ "$ZREP_INIT_REMOTE_PROPERTIES" != "" ]] ; then
+		for prop in $ZREP_INIT_REMOTE_PROPERTIES ; do
+			zrep_ssh $desthost zfs set $prop $destfs
+		done
+	fi
+
+
 	# Success! So need to set success marker on remote side.
 	# Make sure to set format to match what zrep_sync() looks for!
 	if (( Z_HAS_SNAPPROPS )) ; then

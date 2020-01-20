@@ -29,13 +29,24 @@ ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
 #  !! also, make sure variable is EXPORTED !!
 ZREPTAG=${ZREPTAG:-zrep}
 
+# If you'd like a little extra debug output define this env var to something
+#DEBUG=1
+
 #If set to yes(default), renames failed sync snapshots to "zrep_#####_unsent"
 ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 
-#ZREP_CREATE_FLAGS="-o whatever"   #Use for extra options on remote zfs create
+#Use for extra options on remote zfs create. (zrep init)
+#This only gets used for OLD systems that dont have "-o readonly=on"
+#ZREP_CREATE_FLAGS="-o whatever"
 
-# If you'd like a little extra debug output define this env var to something
-#DEBUG=1
+#Convenience hook.
+#By default, the remote fs should start with the same properties that the master has.
+#However, sometimes people want different ones.
+# syntax: "prop1=value  [prop2=value]"
+#While some zfs implementations support multiple values in a single set command,
+#Others do not. So if multiple are found, multiple ssh calls will be made.
+#ZREP_INIT_REMOTE_PROPERTIES="compression=on"
+
 
 # The fastest alternative transport, IF you have multicore/thread CPUs,
 # would seem to be bbcp. If you have both, then you probably want to 
@@ -1377,6 +1388,13 @@ zrep_init(){
 		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$ZREP_SAVE_COUNT $destfs
 
 	fi
+
+	if [[ "$ZREP_INIT_REMOTE_PROPERTIES" != "" ]] ; then
+		for prop in $ZREP_INIT_REMOTE_PROPERTIES ; do
+			zrep_ssh $desthost zfs set $prop $destfs
+		done
+	fi
+
 
 	# Success! So need to set success marker on remote side.
 	# Make sure to set format to match what zrep_sync() looks for!
