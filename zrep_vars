@@ -27,16 +27,22 @@ ZREPTAG=${ZREPTAG:-zrep}
 #If set to yes(default), renames failed sync snapshots to "zrep_#####_unsent"
 ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 
-#Use for extra options on remote zfs create. (zrep init)
-#This only gets used for OLD systems that dont have "-o readonly=on"
-#ZREP_CREATE_FLAGS="-o whatever"
+# The default behavior for up-to-date ZFS filesystems, is that zrep will call
+# a zfs send/receieve that creates the remote filesystem with pretty much the same options.
+# However, sometimes, it is important to have the remote side have a diferent set of
+# options, BEFORE data has been transferred. ie: with remote using compression.
+# Note1: If set, this will stop the typical inheritance of src filesystem properties
+# Note2: It will force the "old zfs creation style" codepath for init. But not
+#  for the rest of zrep
+#ZREP_CREATE_FLAGS="-o compression=on,xx=yy"
 
 #Convenience hook.
 #By default, the remote fs should start with the same properties that the master has.
 #However, sometimes people want different ones.
-# syntax: "prop1=value  [prop2=value]"
+#If this var is set, a post-init ssh will be made, to set the requested properties.
 #While some zfs implementations support multiple values in a single set command,
-#Others do not. So if multiple are found, multiple ssh calls will be made.
+#Others do not. So if multiple are set here, multiple ssh calls will be made.
+# syntax: "prop1=value  [prop2=value prop3=value ... ]"
 #ZREP_INIT_REMOTE_PROPERTIES="compression=on"
 
 

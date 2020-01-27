@@ -35,16 +35,22 @@ ZREPTAG=${ZREPTAG:-zrep}
 #If set to yes(default), renames failed sync snapshots to "zrep_#####_unsent"
 ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 
-#Use for extra options on remote zfs create. (zrep init)
-#This only gets used for OLD systems that dont have "-o readonly=on"
-#ZREP_CREATE_FLAGS="-o whatever"
+# The default behavior for up-to-date ZFS filesystems, is that zrep will call
+# a zfs send/receieve that creates the remote filesystem with pretty much the same options.
+# However, sometimes, it is important to have the remote side have a diferent set of
+# options, BEFORE data has been transferred. ie: with remote using compression.
+# Note1: If set, this will stop the typical inheritance of src filesystem properties
+# Note2: It will force the "old zfs creation style" codepath for init. But not
+#  for the rest of zrep
+#ZREP_CREATE_FLAGS="-o compression=on,xx=yy"
 
 #Convenience hook.
 #By default, the remote fs should start with the same properties that the master has.
 #However, sometimes people want different ones.
-# syntax: "prop1=value  [prop2=value]"
+#If this var is set, a post-init ssh will be made, to set the requested properties.
 #While some zfs implementations support multiple values in a single set command,
-#Others do not. So if multiple are found, multiple ssh calls will be made.
+#Others do not. So if multiple are set here, multiple ssh calls will be made.
+# syntax: "prop1=value  [prop2=value prop3=value ... ]"
 #ZREP_INIT_REMOTE_PROPERTIES="compression=on"
 
 
@@ -1317,6 +1323,8 @@ zrep_init(){
 		else
 			READONLYPROP=""
 			print Warning: zfs recv lacking -o readonly
+		fi
+		if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
 			print Creating readonly destination filesystem as separate step
 			zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
 		fi
@@ -1330,11 +1338,11 @@ zrep_init(){
 		# Note: we may have to reset readonly=on, if we used -p on send...
 		#
 		print Sending initial replication stream to $desthost:$destfs
+
 		if (( Z_HAS_REC_U )) ; then
-		# This is the nice, clean, modern codepath, to send
-		# zrep settings over automatically at first init.
-		# Note that we use "zfs send -p" to preserve properties.
-		#
+			# This is the nice, clean, modern codepath, to send
+			# zrep settings over automatically at first init.
+			# Note that we use "zfs send -p" to preserve properties.
 
 			if [[ "$BBCP" != "" ]] ; then
 			$BBCP -N io "zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap" \
@@ -1343,15 +1351,16 @@ zrep_init(){
 			eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap ${Z_F_OUT}|
 				zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP $recv_s -F $destfs"
 			fi
+
 		else
-		## arg.. Update your systems!!
-		# without -u, risky to use send -p if mountpoint set.
-		#  (So we cant avoid it potentially WRONGLY setting mountpoint)
-		# This means we have to manually set props lower down as well.
-		# (yeah okay I could check if $mountpoint set, but
-		#  there are too many code branches here already, so too bad!
-		#  Update your system! :p )
-		#
+			## arg.. Update your systems!!
+			# without -u, risky to use send -p if mountpoint set.
+			#  (So we cant avoid it potentially WRONGLY setting mountpoint)
+			# This means we have to manually set props lower down as well.
+			# (yeah okay I could check if $mountpoint set, but
+			#  there are too many code branches here already, so too bad!
+			#  Update your system! :p )
+
 			if [[ "$BBCP" != "" ]] ; then
 			$BBCP -N io "zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap" \
 			    "$desthost:zfs recv $READONLYPROP $recv_s -F $destfs"
@@ -1368,13 +1377,15 @@ zrep_init(){
 			fi
 		fi
 
-	fi   #token
+	fi   #resume token set
 
 
-	# Successful initial sync! Woo! okay record that, etc.
+	# Successful initial sync! Woo! okay, record that fact and complete setting properties
 	# ... after stupid old-zfs-compat junk, that is
-	if (( ! Z_HAS_REC_U )) ; then
-		_debugprint Because your zfs does not have recv -u, setting remote properties by hand
+	if (( ! Z_HAS_REC_U )) || [[ "$ZREP_CREATE_FLAGS" != "" ]] ; then
+		_debugprint Because your zfs does not have recv -u,
+		_debugprint   or maybe because ZREP_CREATE_FLAGS set,
+		_debugprint setting remote properties by hand
 		zrep_ssh $desthost zfs set readonly=on $destfs
 		if [[ $? -ne 0 ]] ; then
 			errquit Could not set readonly for $desthost:$destfs. However, snapshot has been synced. \
@@ -1389,6 +1400,7 @@ zrep_init(){
 
 	fi
 
+	# Extra, non-symmeric properties the user might want on the remote side.
 	if [[ "$ZREP_INIT_REMOTE_PROPERTIES" != "" ]] ; then
 		for prop in $ZREP_INIT_REMOTE_PROPERTIES ; do
 			zrep_ssh $desthost zfs set $prop $destfs
