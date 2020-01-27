@@ -621,7 +621,9 @@ zrep_refresh(){
 
 	_debugprint Running local expires on $destfs
 	_expire $destfs
+
 	_debugprint Running remote expires on $srcfs
+	sleep 1  # avoid race condition on samehost situation
 	zrep_ssh $srchost "$ZREP_PATH expire -L $srcfs"
 
 	zrep_unlock_fs $destfs
