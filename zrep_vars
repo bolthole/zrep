@@ -4,6 +4,11 @@
 # It contains all 'constant' definitions, as well as a few crucial
 # shared routines, such as lock handling ones.
 
+# Global defaults file
+if [[ -f "/etc/default/zrep" ]]; then
+  . /etc/default/zrep
+fi
+
 ########################################################################
 # User tunable section. These may be overridden in user environment vars
 SSH=${SSH:-ssh}
