@@ -134,7 +134,7 @@ ZREP_SAVE_COUNT=${ZREP_SAVE_COUNT:-5}
 # This currently is only used in zrep status
 # If you change it to %s then zrep will display 
 # seconds since the most resent snapshot was synced.
-ZREP_DATEFORMAT=%Y/%m/%d-%H:%M:%S
+ZREP_DATEFORMAT=${ZREP_DATEFORMAT:-%Y/%m/%d-%H:%M:%S}
 
 
 #########################################################################
