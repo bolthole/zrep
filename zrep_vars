@@ -6,6 +6,17 @@
 
 ########################################################################
 # User tunable section. These may be overridden in user environment vars
+#
+# Additionally, we check /etc/default/zrep first.
+# If you want to allow users to override the options set there, then be sure
+# to use similar syntax to below:
+#   VAR=${VAR:-yourvalue}
+#
+
+if [[ -f /etc/default/zrep ]] ; then
+	. /etc/default/zrep
+fi
+
 SSH=${SSH:-ssh}
 ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
 
