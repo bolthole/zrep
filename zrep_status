@@ -56,7 +56,7 @@ zrep_status(){
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
 			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
-			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" "#$sentseconds"`
+			date=`printf "%(${ZREP_DATEFORMAT})T" "#$sentseconds"`
 			vdate=${date%:*}
 			fi
 

@@ -131,6 +131,11 @@ PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
 # This only gets used at init time
 ZREP_SAVE_COUNT=${ZREP_SAVE_COUNT:-5}
 
+# This currently is only used in zrep status
+# If you change it to %s then zrep will display 
+# seconds since the most resent snapshot was synced.
+ZREP_DATEFORMAT=%Y/%m/%d-%H:%M:%S
+
 
 #########################################################################
 #########################################################################
