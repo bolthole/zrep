@@ -248,7 +248,6 @@ _snapandsync(){
 
 
 
-
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 # This is the level that calls zfs directly.
@@ -619,6 +618,10 @@ zrep_refresh(){
 		_errprint WARNING: expected local copy $destfs@newseq does not exist
 	fi
 
+
+	zrep_ssh $srchost "$ZREP_PATH _refreshcomplete  $newsnap $senttimeprop 
+
+
 	_debugprint Running local expires on $destfs
 	_expire $destfs
 
@@ -687,7 +690,6 @@ _refreshpull(){
 		zrep_errquit Sync error: $snapname is not latest snap for $fs
 	fi
 
-	typeset senttimeprop="`_gensentprop`"
 
 	if (( Z_HAS_SNAPPROPS ==0)) ; then
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
@@ -704,10 +706,21 @@ _refreshpull(){
 	fi
 
 
-	zfs set $senttimeprop $latest
 	zrep_unlock_fs $fs
 }
 
+
+# INTERNAL-ONLY HOOK for "zrep refresh"
+#
+# This used to be in _refreshpull. However, that led to a race condition where a
+# "zfs send" had been completed, and "last sent" had been updated prematurely.
+# if the zfs receive didnt complete, then things were messed up.
+# Usage:
+#  _refreshcomplete  fs@snapshot propertysetting=value
+#
+_refreshcomplete(){
+	zfs set ${2} ${1}
+}
 
 # usage:
 #  snap_olderthan  snapname minutes
