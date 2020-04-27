@@ -2084,7 +2084,7 @@ zrep_refresh(){
 			;;					
 	esac
 	
-	oldsnap=`getlastsnapsent $fs`
+	oldsnap=`getlastsnap $fs`
 	
 	typeset	senttimeprop="`_gensentprop`"
 
