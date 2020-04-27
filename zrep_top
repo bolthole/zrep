@@ -34,7 +34,8 @@ usage(){
 	print 'zrep (status|-s) -m [ZFS/fs]'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
 	print 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
-	print 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
+	print 'zrep getlastsent ZFS/fs           -- prints out snapshot of last successful sync sent'
+#	print 'zrep setlastsent ZFS/fs snapname  -- overrides value of last known snapshot synced'
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
 	print 'zrep version'
@@ -194,9 +195,10 @@ case "$1" in
 		shift
 		zrep_list "$@"
 		;;
-	lastsent)
+	lastsent|getlastsent)
+		# lastsent is a backward compability hook.
 		shift
-		zrep_lastsent "$@"
+		zrep_getlastsent "$@"
 		;;
 	failover)
 		shift
@@ -205,6 +207,14 @@ case "$1" in
 			ZREP_FORCE=-f
 		fi
 		zrep_failover "$@"
+		;;
+	setlastsent)
+		shift
+		#zrep_setlastsent "$@"
+		echo Nothing to see here. You might want sentsync. You might not.
+		#  This kind of overlaps with "sentsync". Which may be poorly named
+		#
+		exit 1
 		;;
 	takeover)
 		shift
@@ -225,6 +235,10 @@ case "$1" in
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
 		shift
 		_refreshpull $1
+		;;
+	_refreshcomplete)  # Secret option DO NOT PUT IN USAGE!!
+		shift
+		_refreshcomplete $@
 		;;
 	*)
 		print "ERROR: Dont know what to do with: $@"
