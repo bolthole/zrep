@@ -2100,7 +2100,7 @@ zrep_refresh(){
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
-		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
+		zrep_errquit Unforeseen error pulling snapshot $newsnap from $srchost
 	fi
 
 	zfs set $senttimeprop $destfs@$newseq
@@ -2190,10 +2190,18 @@ _refreshpull(){
 
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
+		if [[ "$ZREP_RESUME" == "" ]] ; then
+			if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
+				zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
+				zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
+			else
+				zfs destroy ${Z_SNAP_R} ${newsnap}
+			fi
+		fi
+	else
+		zfs set $senttimeprop $latest
 	fi
 
-
-	zfs set $senttimeprop $latest
 	zrep_unlock_fs $fs
 }
 
