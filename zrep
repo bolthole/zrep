@@ -842,8 +842,8 @@ zrep_list_snaps(){
 	
 }
 
-# Given a filename, prints out full snapshot name of last successfully synced snap
-zrep_lastsent(){
+# Given a filesytem name, prints out full snapshot name of last successfully synced snap
+zrep_getlastsent(){
 	if [[ "$1" == "" ]] ; then
 		_errprint ERROR: zrep uptodate requires the name of a zrep managed fs
 		exit 1
@@ -1737,7 +1737,6 @@ _snapandsync(){
 
 
 
-
 # called by _snapandsync, and also zrep_synconly
 # Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
 # This is the level that calls zfs directly.
@@ -2108,6 +2107,10 @@ zrep_refresh(){
 		_errprint WARNING: expected local copy $destfs@newseq does not exist
 	fi
 
+
+	zrep_ssh $srchost "$ZREP_PATH _refreshcomplete  $newsnap $senttimeprop 
+
+
 	_debugprint Running local expires on $destfs
 	_expire $destfs
 
@@ -2176,7 +2179,6 @@ _refreshpull(){
 		zrep_errquit Sync error: $snapname is not latest snap for $fs
 	fi
 
-	typeset senttimeprop="`_gensentprop`"
 
 	if (( Z_HAS_SNAPPROPS ==0)) ; then
 		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
@@ -2193,10 +2195,21 @@ _refreshpull(){
 	fi
 
 
-	zfs set $senttimeprop $latest
 	zrep_unlock_fs $fs
 }
 
+
+# INTERNAL-ONLY HOOK for "zrep refresh"
+#
+# This used to be in _refreshpull. However, that led to a race condition where a
+# "zfs send" had been completed, and "last sent" had been updated prematurely.
+# if the zfs receive didnt complete, then things were messed up.
+# Usage:
+#  _refreshcomplete  fs@snapshot propertysetting=value
+#
+_refreshcomplete(){
+	zfs set ${2} ${1}
+}
 
 # usage:
 #  snap_olderthan  snapname minutes
@@ -2567,7 +2580,8 @@ usage(){
 	print 'zrep (status|-s) -m [ZFS/fs]'
 	print 'zrep (list|-l) [-Lv]  [fs/names]'
 	print 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
-	print 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
+	print 'zrep getlastsent ZFS/fs           -- prints out snapshot of last successful sync sent'
+#	print 'zrep setlastsent ZFS/fs snapname  -- overrides value of last known snapshot synced'
 	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	print 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
 	print 'zrep version'
@@ -2727,9 +2741,10 @@ case "$1" in
 		shift
 		zrep_list "$@"
 		;;
-	lastsent)
+	lastsent|getlastsent)
+		# lastsent is a backward compability hook.
 		shift
-		zrep_lastsent "$@"
+		zrep_getlastsent "$@"
 		;;
 	failover)
 		shift
@@ -2738,6 +2753,14 @@ case "$1" in
 			ZREP_FORCE=-f
 		fi
 		zrep_failover "$@"
+		;;
+	setlastsent)
+		shift
+		#zrep_setlastsent "$@"
+		echo Nothing to see here. You might want sentsync. You might not.
+		#  This kind of overlaps with "sentsync". Which may be poorly named
+		#
+		exit 1
 		;;
 	takeover)
 		shift
@@ -2758,6 +2781,10 @@ case "$1" in
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
 		shift
 		_refreshpull $1
+		;;
+	_refreshcomplete)  # Secret option DO NOT PUT IN USAGE!!
+		shift
+		_refreshcomplete $@
 		;;
 	*)
 		print "ERROR: Dont know what to do with: $@"
