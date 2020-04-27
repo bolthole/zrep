@@ -2084,6 +2084,8 @@ zrep_refresh(){
 			;;					
 	esac
 	
+	oldsnap=`getlastsnapsent $fs`
+	
 	typeset	senttimeprop="`_gensentprop`"
 
 	_debugprint refresh step 2: Pulling $newsnap
@@ -2093,10 +2095,10 @@ zrep_refresh(){
 	fi
 
 	if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
+		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $oldsnap $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT}" |
+		zrep_ssh $srchost "$ZREP_PATH _refreshpull $oldsnap $newsnap $token ${Z_F_OUT}" |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
@@ -2143,13 +2145,15 @@ _refreshpull(){
 		verbose=-v
 	fi
 
+	oldsnapname="$1"
+	shift
 	snapname="$1"
 	fs=${snapname%@*}
 
 	# Keep in mind that stdin/out is busy so have to use stderr.
 	# Cant use regular debugprint
 	if [[ "$DEBUG" != "" ]] ; then
-	     _errprint _refreshpull: snapname=$snapname, fs=$fs
+	     _errprint _refreshpull: oldsnapname=$oldsnapname, snapname=$snapname, fs=$fs
 	fi
 
 	zrep_lock_fs $fs
@@ -2166,9 +2170,8 @@ _refreshpull(){
 	#    we will see an error by the pipe blowing up.
 	#
 
-	lastsent=`getlastsnapsent $fs`
-	if [[ "$lastsent" == "" ]] ; then
-		zrep_errquit Canthappen: _refreshpull cant findlastsent snap
+	if [[ "$oldsnapname" == "" ]] ; then
+		zrep_errquit Cant happen: _refreshpull cant find last sent snap
 	fi
 	latest=`getlastsnap $fs`
 
@@ -2185,7 +2188,7 @@ _refreshpull(){
 	if [[ "$token" != "" ]] ; then
 		zfs send ${ZREP_RESUME_FLAGS} -t $token 
 	else
-		zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $latest
+		zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $oldsnap $latest
 	fi
 
 	if [[ $? -ne 0 ]] ; then
