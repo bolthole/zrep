@@ -398,7 +398,7 @@ zrep_get_global_lock(){
 
 	set -C  #noclobber
 	# ignore error this time, because we retry anyway.
-	echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE 2>/dev/null && return 0  
+	[ ! -e $Z_GLOBAL_LOCKFILE ] && echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE && return 0  
 
 	# Otherwise, deal with fail/retry.
 	# Careful of race conditions on stale CLEAN UP!
