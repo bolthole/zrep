@@ -8,7 +8,7 @@ Install zrep with a single download and you're almost ready to go.
 
 Step 1: wget https://raw.githubusercontent.com/bolthole/zrep/master/zrep (and make it executable of course. Plus copy it to your second host)
 
-Step 2: zrep -i pool1/prodfs host2 destpool
+Step 2: zrep -i pool1/prodfs host2 destpool/prodfs
 
 Step 3: (put in cron, every minute if you like)  zrep -S pool1/prodfs
 
