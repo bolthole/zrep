@@ -320,6 +320,13 @@ _sync(){
 		   "$desthost:zfs recv $recv_s $force $destfs"
 	else
 		if [[ "$token" != "" ]] ; then
+                        # BASSILOV 2020-10-18 when resuming broken sending the last succesful snap will be different than the defined previously
+			# so we must find the correct one to set zrep:sent property on success. getlastsnapsent should also be fixed to find sync snaps not matching zrep_###### mask
+			# TO DO this option will not work correctly when used with ZREP_R=-R because it resumes only part of recursive send
+			# on my system I made additional property zrep:canresume and a script which analizes it and launch zrep with -s parameter when set
+                        newsnap=`zfs send ${ZREP_RESUME_FLAGS} -n -v -t $token | grep 'toname = ' | awk 'BEGIN{ FS=" = "; }{ print $2; }'`
+                        snapname=${newsnap#*@}
+		
 			eval zfs send ${ZREP_RESUME_FLAGS} -t $token  ${Z_F_OUT} | 
 			   zrep_ssh $desthost "${Z_F_IN} zfs recv $recv_s $force $destfs"
 		else
