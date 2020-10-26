@@ -1341,8 +1341,11 @@ zrep_init(){
 			print Warning: zfs recv lacking -o readonly
 		fi
 		if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
-			print Creating readonly destination filesystem as separate step
-			zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS -o readonly=on $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
+			print Creating  destination filesystem as separate step
+			# normally would want to use -o readonly here.
+			# however, that breaks when -R is used.
+			# set it after transfer instead
+			zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
 		fi
 
 		snap="${srcfs}@${ZREPTAG}_000000"
@@ -1414,6 +1417,10 @@ zrep_init(){
 		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-host=$desthost $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$ZREP_SAVE_COUNT $destfs
 
+	fi
+	if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
+		print setting readonly on $desthost:$destfs manually
+		zrep_ssh $desthost zfs set readonly=on $destfs
 	fi
 
 	# Extra, non-symmeric properties the user might want on the remote side.
