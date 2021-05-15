@@ -13,3 +13,4 @@ required, so long as this license is copied with it.
 You may NOT publically redistribute it, either in its original form, or
 modified, without explicit consent by the author.
 
+Consent has already been given for certain free software distributions
