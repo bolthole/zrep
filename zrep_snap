@@ -52,8 +52,10 @@ getlastsnapsent(){
 	# arg.  more efficient if we can just return value directly,
 	# but i'm using backwards compat :(
 	typeset lastsent
-	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1 |
-	   sort | tail -1`
+        # BASSILOV 2020-10-18 sorting by name is not good way because the last sent snap can be not from zrep (when resuming sendings for example)
+        ## lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1 |
+        ##   sort | tail -1`
+        lastsent=`zfs get -H -o value,name -r -s local ${ZREPTAG}:sent $1 | sort -n | tail -1 | awk '{print $2;}'`
 	if [[ "$lastsent" != "" ]] ; then
 		print $lastsent
 		return
