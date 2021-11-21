@@ -1,7 +1,16 @@
-#!/bin/ksh -p
+#!/bin/bash --noprofile
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
-ZREP_VERSION=1.8
+ZREP_VERSION=2.0
+
+################################################
+# some ksh-to-bash tweaks to make transition easier for Phil:
+
+# ksh has "print" that is always an internal command. force bash to do the same for echo
+builtin echo
+
+################################################
+
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars
@@ -13,49 +22,49 @@ AWKinclude zrep_failover
 ######## zrep_top continues here
 
 usage(){
-	print zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
-	print in an ongoing basis.
-	print 
-	print "  Philip Brown, 2012-2019"
-	print 
-	print Simple usage summary:
-	print 'zrep (init|-i) [-v] ZFS/fs remotehost remoteZFSpool/fs'
-	print 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
-	print 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
-	print 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
-	print 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
-	print 'zrep failover [-L] ZFS/fs'
-	print 'zrep takeover [-L] ZFS/fs'
-	print 
-	print "Status and side operations"
-	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
-	print 'zrep (list|-l) [-Lv]  [fs/names]'
-	print 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
-	print 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
-	print 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
-	print 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
-	print 'zrep version'
-	print 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
-	print 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
-	print 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
+	echo zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
+	echo in an ongoing basis.
+	echo 
+	echo "  Philip Brown, 2012-2019"
+	echo 
+	echo Simple usage summary:
+	echo 'zrep (init|-i) [-v] ZFS/fs remotehost remoteZFSpool/fs'
+	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
+	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
+	echo 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
+	echo 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
+	echo 'zrep failover [-L] ZFS/fs'
+	echo 'zrep takeover [-L] ZFS/fs'
+	echo 
+	echo "Status and side operations"
+	echo 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
+	echo 'zrep (list|-l) [-Lv]  [fs/names]'
+	echo 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
+	echo 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
+	echo 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
+	echo 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
+	echo 'zrep version'
+	echo 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
+	echo 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
+	echo 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	print
-	print '   -q option to sync says to Quietly ignore locked filesystems'
-	print '    that have synced more recently than the given amount of seconds'
+	echo '   -q option to sync says to Quietly ignore locked filesystems'
+	echo '    that have synced more recently than the given amount of seconds'
 	print
-	print 'Paired commands for high-transaction systems:'
-	print '   zrep snaponly (ZFS/fs ... |all)'
-	print '   zrep synconly (ZFS/fs ...|all)'
-	print 'The above two commands split the simple sync subcommand, into two'
-	print 'separate steps, so that a database, etc. may resume while the sync'
-	print 'completes in the background'
-	print ''
-	print 'zrep defaults to using ssh. However, if remotehost is set to localhost,'
-	print 'zrep will use a simple pipe instead.'
-	print ''
-	print ' More detailed examples can be found at:'
-	print http://www.bolthole.com/solaris/zrep/zrep.documentation.html
-	print ''
-	print 'See the above documentation for details on using the -t flag to use zrep tags'
+	echo 'Paired commands for high-transaction systems:'
+	echo '   zrep snaponly (ZFS/fs ... |all)'
+	echo '   zrep synconly (ZFS/fs ...|all)'
+	echo 'The above two commands split the simple sync subcommand, into two'
+	echo 'separate steps, so that a database, etc. may resume while the sync'
+	echo 'completes in the background'
+	echo ''
+	echo 'zrep defaults to using ssh. However, if remotehost is set to localhost,'
+	echo 'zrep will use a simple pipe instead.'
+	echo ''
+	echo ' More detailed examples can be found at:'
+	echo http://www.bolthole.com/solaris/zrep/zrep.documentation.html
+	echo ''
+	echo 'See the above documentation for details on using the -t flag to use zrep tags'
 }
 
 #
@@ -213,9 +222,9 @@ case "$1" in
 		exit $?
 		;;
 	version)
-		print "zrep $ZREP_VERSION"
-		print "http://www.bolthole.com/solaris/zrep"
-		print "http://www.github.com/bolthole/zrep"
+		echo "zrep $ZREP_VERSION"
+		echo "http://www.bolthole.com/solaris/zrep"
+		echo "http://www.github.com/bolthole/zrep"
 		exit
 		;;
 		
@@ -224,8 +233,8 @@ case "$1" in
 		_refreshpull $1
 		;;
 	*)
-		print "ERROR: Dont know what to do with: $@"
-		print ""
+		echo "ERROR: Dont know what to do with: $@"
+		echo ""
 		usage
 		;;
 esac
