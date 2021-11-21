@@ -10,8 +10,8 @@
 
 #
 #Give this a top level zrep registered filesystem, NOT snapshot.
-# Will print out various status points, such as last sync date.
-# Or if given no args, will print out sync date for all zrep mastered fs
+# Will echo out various status points, such as last sync date.
+# Or if given no args, will echo out sync date for all zrep mastered fs
 # Note that the date given is time of SNAPSHOT, not time sync completed.
 #
 zrep_status(){
@@ -71,7 +71,7 @@ zrep_status(){
 			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "$vdate"
 		else
 			printf "%-52s " $srcfs
-			print "last: $date"
+			echo "last: $date"
 		fi
 		shift
 	done
@@ -98,7 +98,7 @@ zrep_list_master(){
 	for fs in `_master_fs_names "$@"` ; do
 		srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
 		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
-			print $fs
+			echo $fs
 		fi
 	done
 }
@@ -107,13 +107,13 @@ zrep_list_master(){
 # Given ONE filesystem, print all zrep properties for it.
 # Note that this is internal routine. we do not validate input.
 list_verbose(){
-	print $1:
+	echo $1:
 		# sneaky cheat: only user-set properties will
 		# match these 'source' types. So "grep zrep:" is not
 		# neccessary. Although we may pick up other user-set values,
 		# but that is not neccessarily a bad thing
 	zfs get -H -o property,value -s $PROPTYPES all $1
-	print "last snapshot synced: `getlastsnapsent $1`"
+	echo "last snapshot synced: `getlastsnapsent $1`"
 
 }
 
@@ -185,13 +185,13 @@ zrep_list(){
 
 
 	# oh well. have to step through them one by one now, to
-	# print out the properties associated with each zrep filesystem
+	# echo out the properties associated with each zrep filesystem
 
 	fslist=`zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs`
 
 	for fs in $fslist ; do
 		$printcmd $fs
-		print ""
+		echo ""
 	done
 	
 	
@@ -226,7 +226,7 @@ zrep_lastsent(){
 		exit 1
 	fi
 
-	print `getlastsnapsent $1`
+	echo `getlastsnapsent $1`
 
 }
 

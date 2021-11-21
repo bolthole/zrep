@@ -9,7 +9,7 @@
 ## file-internal routine that gets used a lot in zrep_sync
 _gensentprop(){
 	typeset timeinsec=`zrep_gettimeinseconds`
-	print "${ZREPTAG}:sent=$timeinsec"
+	echo "${ZREPTAG}:sent=$timeinsec"
 }
 
 
@@ -104,7 +104,7 @@ synctosnap(){
 
 	typeset srcfs snapname destsnap
 	if [[ "$desthost" == "" ]] ; then
-		print ERROR: synctosnap did not receive all required args
+		echo ERROR: synctosnap did not receive all required args
 		zrep_errquit "args=$@"
 	fi
 	srcfs=${srcsnap%@*}
@@ -125,29 +125,29 @@ synctosnap(){
 		
 		
 
-	print Validating remote snap
+	echo Validating remote snap
 	zrep_ssh $desthost zfs list -t snapshot $destfs@$destsnap >/dev/null
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit  $destfs@$destsnap does not exist. Cannot roll to snap
 	fi
 	
 
-	print "WARNING: We will be rolling back  $destfs, on $desthost"
-	print -n "   to  $snapname, made at: "
+	echo "WARNING: We will be rolling back  $destfs, on $desthost"
+	echo -n "   to  $snapname, made at: "
 	$ZFSGETVAL creation $srcsnap
-	print ""
-	print "All newer snapshots on remote side will be destroyed"
-	print "You should have paused ongoing sync jobs for $destfs before continuing"
-	print "Continuing in 20 seconds...."
+	echo ""
+	echo "All newer snapshots on remote side will be destroyed"
+	echo "You should have paused ongoing sync jobs for $destfs before continuing"
+	echo "Continuing in 20 seconds...."
 	sleep 10
-	print "Continuing in 10 seconds...."
+	echo "Continuing in 10 seconds...."
 	sleep 10
 
 	zrep_lock_fs $srcfs || zrep_errquit "Cannot lock $srcfs"
 	zrep_ssh $desthost zfs rollback -Rr $destfs@$destsnap || zrep_errquit roll failed
 
-	print $desthost:$destfs rolled back successfully to $destsnap
-	print Now cleaning up local snapshots
+	echo $desthost:$destfs rolled back successfully to $destsnap
+	echo Now cleaning up local snapshots
 
 	# need to undo whatever zrep_sync does 
 	newsentlist=`getallsnaps $srcfs|sed "1,/@$snapname/d"`
@@ -211,7 +211,7 @@ _snapandsync(){
 	# if we cant do incremental anyway
 	sentsnap=`getlastsnapsent $srcfs`
 	if [[ "$sentsnap" == "" ]] ; then
-		print zrep_sync could not find sent snap for $srcfs. 
+		echo zrep_sync could not find sent snap for $srcfs. 
 		zrep_errquit You must initialize $srcfs for zrep
 	fi
 
@@ -269,7 +269,7 @@ _sync(){
 	if [[ "$lastsent" == "" ]] ; then
 		lastsent=`getlastsnapsent $srcfs`
 		if [[ "$lastsent" == "" ]] ; then
-			print zrep_sync could not find sent snap for $srcfs. 
+			echo zrep_sync could not find sent snap for $srcfs. 
 			zrep_errquit You must initialize $srcfs for zrep
 		fi
 	fi
@@ -277,13 +277,13 @@ _sync(){
 	if [[ "$newsnap" == "" ]] ; then
 		newsnap=`getlastsnap $srcfs`
 		if [[ "$newsnap" == "" ]] ; then
-			print zrep_sync could not find sent snap for $srcfs. 
+			echo zrep_sync could not find sent snap for $srcfs. 
 			zrep_errquit You must initialize $srcfs for zrep
 		fi
 	fi
 
 	if [[ "$newsnap" == "$lastsent" ]] ; then
-		print $newsnap already sent
+		echo $newsnap already sent
 		return 0
 	fi
 
@@ -291,7 +291,7 @@ _sync(){
 	typeset timeinsec=`zrep_gettimeinseconds`
 	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
 
-	print sending $newsnap to $desthost:$destfs
+	echo sending $newsnap to $desthost:$destfs
 
 	if [[ "$ZREP_RESUME" != "" ]] ; then
 		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
@@ -349,8 +349,8 @@ _sync(){
 	# So try newer way first.
 	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
 	if [[ $? -ne 0 ]] ; then
-		print WARNING: setting ${ZREPTAG}:sent failed on $desthost:$destfs@$snapname
-		print Using fallback methods. You should go patch $destfs to have newer ZFS version
+		echo WARNING: setting ${ZREPTAG}:sent failed on $desthost:$destfs@$snapname
+		echo Using fallback methods. You should go patch $destfs to have newer ZFS version
 		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsent=${newsnap} $destfs
 		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $destfs
 	fi
@@ -440,7 +440,7 @@ zrep_sync(){
 		set -- `zrep_list_master`
 		if [[ "$1" == "" ]] ; then
 			# Stay quiet, so we dont spew if in cron
-			#print No zrep mastered filesystems found
+			#echo No zrep mastered filesystems found
 			exit
 		fi
 	fi
@@ -489,7 +489,7 @@ zrep_sync(){
 			_debugprint $elapsed seconds have elapsed since last sync of $srcfs
 			zrep_errquit quiet time limit of $quiettime seconds exceeded for busy fs $srcfs
 		else
-			print Quiet mode: skipping busy fs $srcfs at `date`
+			echo Quiet mode: skipping busy fs $srcfs at `date`
 			return 
 		fi
 	fi
@@ -498,7 +498,7 @@ zrep_sync(){
 
 
 	# Make this message match what zrep_expire uses..
-	print Expiring zrep snaps on $srcfs
+	echo Expiring zrep snaps on $srcfs
 	_expire $srcfs
 
 	zrep_unlock_fs $srcfs
@@ -781,7 +781,7 @@ _expire(){
 
 	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
 	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
-	print Also running expire on $remotehost:$remotefs now...
+	echo Also running expire on $remotehost:$remotefs now...
 	sanity=`zrep_ssh $remotehost $ZFSGETLVAL ${ZREPTAG}:master $remotefs`
 
 	# Normally, dont quit on error. But this is super-bad.
@@ -789,7 +789,7 @@ _expire(){
 		zrep_errquit "Remote side also marked as master ** $remotehost:$remotefs"
 	fi
 
-	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||print REMOTE expire failed
+	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||echo REMOTE expire failed
 }
 
 
@@ -829,8 +829,8 @@ zrep_expire()
 	#
 	while [[ "$1" != "" ]] ; do
 		zrep_lock_fs $1
-		print Expiring zrep snaps on $1
-		 _expire $local $1 || print WARNING: expire failed for $1
+		echo Expiring zrep snaps on $1
+		 _expire $local $1 || echo WARNING: expire failed for $1
 		zrep_unlock_fs $1
 		shift
 	done
