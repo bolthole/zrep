@@ -156,7 +156,7 @@ ZREP_DATEFORMAT=${ZREP_DATEFORMAT:-%Y/%m/%d-%H:%M:%S}
 
 _debugprint(){
 	if [[ "$DEBUG" != "" ]] ; then
-	   print DEBUG: $@
+	   echo DEBUG: $@
 	fi	 
 }
 
@@ -164,9 +164,9 @@ _debugprint(){
 # to make dealing with github issue #22 easier, about redirecting stderr
 _errprint(){
 	# I thought /dev/fd was ksh builtin, so safest. But it glitches on some linuxen.
-	# print $@ >/dev/fd/2
+	# echo $@ >/dev/fd/2
 
-	print $@ >&2
+	echo $@ >&2
 
 }
 
@@ -337,8 +337,8 @@ else
 		DEPTHCAP="-d 1" # limits "list -r"
 	else
 		DEPTHCAP=""
-		print WARNING: old ZFS version detected with no depth protection
-		print WARNING: You may not nest zrep managed filesystems
+		echo WARNING: old ZFS version detected with no depth protection
+		echo WARNING: You may not nest zrep managed filesystems
 	fi
 fi
 
@@ -435,8 +435,8 @@ zrep_get_global_lock(){
 
 	done
 
-	print Failed to acquire global lock
-	print Error message was: $errmsg
+	echo Failed to acquire global lock
+	echo Error message was: $errmsg
 	return 1
 	
 }
@@ -446,7 +446,7 @@ zrep_release_global_lock(){
 		rm $Z_GLOBAL_LOCKFILE
 		return $?
 	else
-		print ERROR: zrep_release_global_lock called, but do not own lock
+		echo ERROR: zrep_release_global_lock called, but do not own lock
 		return 1
 	fi
 }
@@ -542,8 +542,8 @@ zrep_errquit(){
 
 	if zrep_has_global_lock ; then
 		if [[ "$$" -ne "$Z_GLOBAL_PID" ]] ; then
-			print EXTRA-ERROR: Running in child proc.
-			print 'Not sure whether to release global lock. NOT releasing!'
+			echo EXTRA-ERROR: Running in child proc.
+			echo 'Not sure whether to release global lock. NOT releasing!'
 			exit 1
 		else
 
@@ -600,7 +600,7 @@ zrep_gettimeinseconds(){
 	if [[ -z "$seconds" ]] ; then
 		# Unfortunately, solaris date doesnt do '%s', so try perl first.
 		# It's more consistent.
-		seconds=`perl -e 'print int(time);' 2>/dev/null`
+		seconds=`perl -e 'echo int(time);' 2>/dev/null`
 	fi
 	if [[ -z "$seconds" ]] ; then
 		# attempt fallback if no perl present (eg: stock FreeBSD)
@@ -609,6 +609,6 @@ zrep_gettimeinseconds(){
 	if [[ -z "$seconds" ]] ; then
 		zrep_errquit zrep_gettimeinseconds doesnt know what to do
 	fi
-	print $seconds
+	echo $seconds
 }
 

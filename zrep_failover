@@ -44,18 +44,18 @@ zrep_failover(){
 
 	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
 
-	print Setting readonly on local $fs, then syncing
+	echo Setting readonly on local $fs, then syncing
 	zfs set readonly=on $fs
 
 	if ((local ==1)) ; then
-		print Failover for $1 in LOCAL mode
+		echo Failover for $1 in LOCAL mode
 		if [[ "$snap" == "" ]] ; then
 			snap=`getlastsnapsent $1`
 			zfs list $1 >/dev/null ||
 				zrep_errquit No last synced snap found for $1. Cannot fail over
-			print Rolling back to last sync $snap
+			echo Rolling back to last sync $snap
 		else
-			print Rolling back to specified snap $snap
+			echo Rolling back to specified snap $snap
 		fi
 		zfs rollback -Rr $snap ||zrep_errquit Rollback to $snap failed
 
@@ -69,9 +69,9 @@ zrep_failover(){
 			typeset snapname
 			snapname=${snap#*@}
 
-			print Rolling back to local $snap
+			echo Rolling back to local $snap
 			zfs rollback -Rr $snap || zrep_errquit Rollback to $snap failed
-			print Rolling back $remotehost to $remotefs@$snapname
+			echo Rolling back $remotehost to $remotefs@$snapname
 			zrep_ssh $remotehost zfs rollback $remotefs@$snapname ||
 				zrep_errquit remote rollback failed
 
@@ -83,7 +83,7 @@ zrep_failover(){
 
 	fi
 
-	print Reversing master properties for $Z_LOCAL_HOST:$fs
+	echo Reversing master properties for $Z_LOCAL_HOST:$fs
 
 	zfs set ${ZREPTAG}:dest-fs=$fs $fs	
 	zfs set ${ZREPTAG}:dest-host=$Z_LOCAL_HOST $fs
@@ -95,7 +95,7 @@ zrep_failover(){
 	zrep_unlock_fs $fs
 
 	if (( local ==0)) ;then
-		print Setting master on $remotehost:$remotefs
+		echo Setting master on $remotehost:$remotefs
 		zrep_ssh $remotehost $ZREP_PATH takeover -L $remotefs
 	fi
 	
@@ -140,7 +140,7 @@ zrep_takeover(){
 
 	if (( local == 0 )) ; then
 
-		print Starting failover from remote side $remotehost
+		echo Starting failover from remote side $remotehost
 		zrep_ssh $remotehost $ZREP_PATH failover $remotefs
 		# This will ssh back into us to set src host property, 
 		# and the other stuff, so we dont have to do that now.
@@ -164,18 +164,18 @@ zrep_takeover(){
 	zfs inherit readonly $fs
 
 	if [[ "$snap" != "" ]] ; then
-		print "WARNING: Before takeover, we will be rolling $fs"
-		print -n "   to  $snapname, made at: "
+		echo "WARNING: Before takeover, we will be rolling $fs"
+		echo -n "   to  $snapname, made at: "
 		$ZFSGETVAL creation $snap
-		print ""
-		print "All newer snapshots will be destroyed"
-		print Continuing in 10 seconds...
+		echo ""
+		echo "All newer snapshots will be destroyed"
+		echo Continuing in 10 seconds...
 		sleep 10
 
 		zfs rollback -Rr $snap || zrep_errquit Rollback to $snap failed
 	fi
 
-	print Setting master properties for $Z_LOCAL_HOST:$fs
+	echo Setting master properties for $Z_LOCAL_HOST:$fs
 
 	zfs set ${ZREPTAG}:src-fs=$fs $fs	
 	zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $fs
@@ -187,7 +187,7 @@ zrep_takeover(){
 	# Since we default to creating replicas unmounted... mount it now
 	if [[ "`$ZFSGETVAL type $fs`" == "filesystem" ]] ; then
 		if [[ "`$ZFSGETVAL mounted $fs`" == "no" ]] ; then
-				print Mounting $Z_LOCAL_HOST:$fs
+				echo eMounting $Z_LOCAL_HOST:$fs
 				zfs mount $fs
 		fi
 	fi
