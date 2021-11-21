@@ -8,12 +8,14 @@ failmsg(){
     exit 1
 }   
 
+test -x "$ZREP_PATH" || failmsg ZREP_PATH is not set
+
 echo Running basic syn test
 $ZREP_PATH -S $SRC
 
 echo Running changed syn test
 
-test -f /$NEWSRC/testfile && rm /$NEWSRC/testfile
+test -f /$NEWSRC/testfile && echo WARNING:  /$NEWSRC/testfile exists already
 
 echo "this is a test" > /$SRC/testfile
 $ZREP_PATH -S $SRC
