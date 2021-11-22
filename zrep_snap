@@ -229,6 +229,8 @@ makesnap(){
 	
 	zfs snapshot $Z_SNAP_R $newsnap
 	if [[ $? -eq 0 ]] ; then
+		# ksh doesnt need -n, but for some reason, bash does
+		# otherwise other side gets a leading CR ??
 		echo -n $newsnap; return 0
 	else
 		return 1
