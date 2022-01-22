@@ -97,7 +97,7 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 #   compressed filesystems will be sent in compressed form, rather
 #   then autouncompressing
 #    --raw is sometime used for encrypted filesystems
-#ZREP_SEND_FLAGS=-c -raw
+#ZREP_SEND_FLAGS="-c --raw"
 
 # Theoretically identical in purpose to ZREP_SEND_FLAGS, but it turns out that when using 
 #   zfs send -t (resume-token)
