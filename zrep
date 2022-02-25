@@ -2076,7 +2076,7 @@ zrep_refresh(){
 	fi
 
 	_debugprint refresh step 1: Going to $srchost to snapshot $destfs
-	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
+	newsnap=`zrep_ssh $srchost $ZREP_PATH _refreshsnap $ZREP_R $srcfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
 	fi
@@ -2099,10 +2099,10 @@ zrep_refresh(){
 	fi
 
 	if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
+		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $ZREP_R $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT}" |
+		zrep_ssh $srchost "$ZREP_PATH _refreshpull $ZREP_R $newsnap $token ${Z_F_OUT}" |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
@@ -2129,6 +2129,15 @@ zrep_refresh(){
 
 }
 
+_refreshsnap(){
+	if [[ $1 == "-R" ]]; then
+		shift;
+		ZREP_R=-R
+		Z_SNAP_R=-r
+	fi
+	zrep_snaponly $@
+}
+
 # Implementation for hidden command-line option, "zrep _refreshpull"
 # This is called remotely by zrep refresh
 #    ( aka  zrep_refresh  )
@@ -2145,21 +2154,30 @@ _refreshpull(){
 	typeset fs snapname lastsent latest verbose
 	typeset token=""
 
-	if [[ "$2" != "" ]] ; then
-		token="$2"
+	if [[ "$1" == "-R" ]]; then
+		ZREP_R=-R
+		Z_SNAP_R=-r
+		if [[ "$3" != "" ]] ; then
+			token="$3"
+		fi
+		snapname="$2"
+	else
+		if [[ "$2" != "" ]] ; then
+			token="$2"
+		fi
+		snapname="$1"
 	fi
 
 	if [[ "$ZREP_VERBOSE" != "" ]] ; then
 		verbose=-v
 	fi
 
-	snapname="$1"
 	fs=${snapname%@*}
 
 	# Keep in mind that stdin/out is busy so have to use stderr.
 	# Cant use regular debugprint
 	if [[ "$DEBUG" != "" ]] ; then
-	     _errprint _refreshpull: snapname=$snapname, fs=$fs
+	     _errprint _refreshpull: snapname=$snapname, fs=$fs, ZREP_R=$ZREP_R, Z_SNAP_R=$Z_SNAP_R
 	fi
 
 	zrep_lock_fs $fs
@@ -2784,10 +2802,13 @@ case "$1" in
 		print "http://www.github.com/bolthole/zrep"
 		exit
 		;;
-		
+	_refreshsnap)  # Secret option DO NOT PUT IN USAGE!!
+		shift
+		_refreshsnap $@
+		;;
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
 		shift
-		_refreshpull $1
+		_refreshpull $@
 		;;
 	_refreshcomplete)  # Secret option DO NOT PUT IN USAGE!!
 		shift

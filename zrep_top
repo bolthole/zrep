@@ -231,10 +231,13 @@ case "$1" in
 		print "http://www.github.com/bolthole/zrep"
 		exit
 		;;
-		
+	_refreshsnap)  # Secret option DO NOT PUT IN USAGE!!
+		shift
+		_refreshsnap $@
+		;;
 	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
 		shift
-		_refreshpull $1
+		_refreshpull $@
 		;;
 	_refreshcomplete)  # Secret option DO NOT PUT IN USAGE!!
 		shift
