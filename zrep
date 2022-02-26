@@ -2087,7 +2087,7 @@ zrep_refresh(){
 	fi
 
 	_debugprint refresh step 1: Going to $srchost to snapshot $destfs
-	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
+	newsnap=`zrep_ssh $srchost $ZREP_PATH ${ZREP_R} snaponly $srcfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
 	fi
@@ -2113,7 +2113,7 @@ zrep_refresh(){
 		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT}" |
+		zrep_ssh $srchost "$ZREP_PATH ${ZREP_R}_refreshpull $newsnap $token ${Z_F_OUT}" |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
