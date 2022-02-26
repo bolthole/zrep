@@ -219,6 +219,10 @@ else
 fi
 
 if [[ "$ZREP_R" == "-R" ]] ; then
+	# ZREP_R is a user-settable env var. It also gets used in
+	# "zfs send"  commandlines.  However.. we also need to call
+	# "zfs snap".. which requires LOWERCASE R. So this is an automatically set
+	# mirror of that.
 	Z_SNAP_R="-r"
 fi
 
