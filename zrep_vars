@@ -223,7 +223,7 @@ fi
 # a lot of things simpler, like "ssh zrep xyhz" for multiple things.
 if [[ "$1" == "-R" ]] ; then
 	ZREP_R="-R"
-fio
+fi
 
 if [[ "$ZREP_R" == "-R" ]] ; then
 	# ZREP_R is a user-settable env var. It also gets used in
