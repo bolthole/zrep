@@ -1,0 +1,15 @@
+name: Simple Syntax Check
+on: [push]
+jobs:
+  SyntaxCheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ksh
+        run: sudo apt-get install -y ksh
+      - name: Check out repository
+        uses: actions/checkout@v2
+      - run: echo "${{ github.repository }} has been cloned"
+      - name: Check for syntax errors
+        run: ./zrep
+      - run: echo "This job's status is ${{ job.status }}."
+      
