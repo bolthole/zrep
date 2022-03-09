@@ -1798,6 +1798,11 @@ _sync(){
 		return 0
 	fi
 
+	typeset remotemaster=`zrep_ssh $desthost $ZFSGETLVAL ${ZREPTAG}:master $destfs`
+	if [[ "$remotemaster" == "yes" ]] ; then
+		zrep_errquit "Other side ($desthost:$destfs) is also master. Split brain detected"
+	fi
+
 	snapname=${newsnap#*@}
 	# do this manually, not using gensentprop because we want consistant timestamp
 	typeset timeinsec=`zrep_gettimeinseconds`
