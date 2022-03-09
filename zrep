@@ -1799,6 +1799,9 @@ _sync(){
 	fi
 
 	typeset remotemaster=`zrep_ssh $desthost $ZFSGETLVAL ${ZREPTAG}:master $destfs`
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit "$desthost is not reachable via ssh? Cannot sync"
+	fi
 	if [[ "$remotemaster" == "yes" ]] ; then
 		zrep_errquit "Other side ($desthost:$destfs) is also master. Split brain detected"
 	fi
