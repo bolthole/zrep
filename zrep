@@ -1798,7 +1798,8 @@ _sync(){
 		return 0
 	fi
 
-	typeset remotemaster=`zrep_ssh $desthost $ZFSGETLVAL ${ZREPTAG}:master $destfs`
+	typeset remotemaster
+	remotemaster=`zrep_ssh $desthost $ZFSGETLVAL ${ZREPTAG}:master $destfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit "$desthost is not reachable via ssh? Cannot sync"
 	fi
