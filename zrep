@@ -1701,6 +1701,7 @@ _sync_nochanges(){
 # to do an incremental send.
 # You must hold filesystem lock before calling this
 # WE DO NOT DO ANY SAFETY OR LOCK CHECKS HERE.
+# Caller is expected to have done them.
 #
 # Wil create a new snap on srcfs, and sync it over to given destination
 # Sets our 'synced' marker on it as well.
@@ -1709,13 +1710,6 @@ _snapandsync(){
 	typeset srcfs=$1 desthost=$2 destfs=$3
 
 	typeset sentsnap newsnap snapname
-
-
-
-	#srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $srcfs`
-	#if [[ "$srchost" != "$Z_LOCAL_HOST" ]] ; then
-	#	zrep_errquit _sync: We are not master for $srcfs
-	#fi
 
 
 	# Find incremental send starting point
@@ -1889,9 +1883,9 @@ _sync(){
 
 #User entrypoint, for synconly, which is the pair of snaponly
 zrep_synconly(){
-#	annoyingly..need to make this almost identical to our current full
-#	zrep_sync. but just skipping first steps :(
-#	we can skip retries, though.
+	#	annoyingly..need to make this almost identical to our current full
+	#	zrep_sync. but just skipping first steps :(
+	#	we can skip retries, though.
 	typeset srcfs desthost destfs
 
 	if [[ "$1" == "all" ]] ; then
@@ -1906,6 +1900,10 @@ zrep_synconly(){
 	while [[ "$1" != "" ]] ; do
 		srcfs=$1
 
+		check=`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`
+		if [[ "$check" != "yes" ]] ; then
+			zrep_errquit $srcfs not master. Cannot sync
+		fi
 
 		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
 		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
@@ -1940,6 +1938,8 @@ zrep_synconly(){
 #   If sync more recent than given quiettime, then quietly ignore
 #   
 zrep_sync(){
+	# If you make changes in here, check if needed in zrep_synconly!!
+
 	typeset srcfs destfs desthost sentsnap newsnap
 	typeset quiettime=0
 
@@ -1966,66 +1966,66 @@ zrep_sync(){
 		fi
 	fi
 
-	if [[ "$1" == "" ]] ; then
-		_errprint Error: no filesystems specified for sync
-		return 1
-	fi
+	[[ "$1" == "" ]] && zrep_errquit No fileystem specified for sync
 
-	while [[ "$1" != "" ]] ; do
-	srcfs="$1" 
-
-	[[ "$srcfs" == "" ]] && zrep_errquit No fileystem specified for sync
-
-	desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
-	destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
-	if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
-	then
-		zrep_errquit Problem getting zrep properties for fs $srcfs
-	fi
-	
-	case $srcfs in
+	# Special Case. User can force sync from specific snapshot
+	case $1 in
 		*@*)
 			synctosnap $srcfs $destfs $desthost
 			return
 			;;
 	esac
 
-	zrep_lock_fs $srcfs
+	while [[ "$1" != "" ]] ; do
+		srcfs="$1" 
 
-	if [[ $? -ne 0 ]] ; then
+		check=`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`
+		if [[ "$check" != "yes" ]] ; then
+			zrep_errquit $srcfs not master. Cannot sync
+		fi
+
+		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
+		if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+		then
+			zrep_errquit Problem getting zrep properties for fs $srcfs
+		fi
+
+		zrep_lock_fs $srcfs
+
+		if [[ $? -ne 0 ]] ; then
 		# retry for lock for a while, if (quiettime>0 )
 
-		if ((quiettime==0)); then
-			zrep_errquit Cannot lock $srcfs. Cannot continue
+			if ((quiettime==0)); then
+				zrep_errquit Cannot lock $srcfs. Cannot continue
+			fi
+			typeset currtime=`zrep_gettimeinseconds`  snaptime elapsed
+
+			snaptime=`getlastsynctime $srcfs`
+			if (( snaptime == 0 )) ; then
+				zrep_errquit quiet mode set, but no last snap for $srcfs
+			fi
+	
+			elapsed=$((currtime - snaptime))
+			if ((elapsed > quiettime)) ; then
+				_debugprint $elapsed seconds have elapsed since last sync of $srcfs
+				zrep_errquit quiet time limit of $quiettime seconds exceeded for busy fs $srcfs
+			else
+				print Quiet mode: skipping busy fs $srcfs at `date`
+				return 
+			fi
 		fi
-		typeset currtime=`zrep_gettimeinseconds`  snaptime elapsed
 
-		snaptime=`getlastsynctime $srcfs`
-		if (( snaptime == 0 )) ; then
-			zrep_errquit quiet mode set, but no last snap for $srcfs
-		fi
-
-		elapsed=$((currtime - snaptime))
-		if ((elapsed > quiettime)) ; then
-			_debugprint $elapsed seconds have elapsed since last sync of $srcfs
-			zrep_errquit quiet time limit of $quiettime seconds exceeded for busy fs $srcfs
-		else
-			print Quiet mode: skipping busy fs $srcfs at `date`
-			return 
-		fi
-	fi
-
-	_snapandsync $srcfs $desthost $destfs
+		_snapandsync $srcfs $desthost $destfs
 
 
-	# Make this message match what zrep_expire uses..
-	print Expiring zrep snaps on $srcfs
-	_expire $srcfs
+		# Make this message match what zrep_expire uses..
+		print Expiring zrep snaps on $srcfs
+		_expire $srcfs
 
-	zrep_unlock_fs $srcfs
+		zrep_unlock_fs $srcfs
 
-	shift
-
+		shift
 	done
 
 }
