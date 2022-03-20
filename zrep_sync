@@ -850,7 +850,8 @@ _expire(){
 
 	# Normally, dont quit on error. But this is super-bad.
 	if [[ "$sanity" == "yes" ]] ; then
-		zrep_errquit "Remote side also marked as master. to clear run on $remotehost: zfs inherit ${ZREPTAG}:master $remotefs"
+		_errprint "ERROR: Remote side $remotehost also marked as master."
+		zrep_errquit "ERROR: Split brain scenario detected"
 	fi
 
 	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||print REMOTE expire failed
