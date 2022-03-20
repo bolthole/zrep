@@ -26,8 +26,8 @@ usage(){
 	print 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
 	print 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
 	print 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
-	print 'zrep failover [-L] ZFS/fs'
-	print 'zrep takeover [-L] ZFS/fs'
+	print 'zrep failover [-L] ZFS/fs [remotehost]'
+	print 'zrep takeover [-L] ZFS/fs [remotehost]'
 	print 
 	print "Status and side operations"
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'

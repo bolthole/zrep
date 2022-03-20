@@ -1882,6 +1882,7 @@ _sync(){
 
 
 #User entrypoint, for synconly, which is the pair of snaponly
+#Keep it paired with zrep_sync
 zrep_synconly(){
 	#	annoyingly..need to make this almost identical to our current full
 	#	zrep_sync. but just skipping first steps :(
@@ -1929,10 +1930,11 @@ zrep_synconly(){
 
 
 #zrep_sync
-# make a new snapshot and copy it over.
+# User entrypoint
+# Make a new snapshot and copy it over.
 # Usage: zrep_sync [-q quiettime] (all|fs1 .. fsX)
 # See workflow.txt 
-# Will call synctosnap if a snapshot is given instead of fsname
+# SPECIAL CASE: Will call synctosnap if a snapshot is given instead of fsname
 # Normally, will bail out if another instance of zrep holds lock.
 # -q option says to check last update time of locked filesystems.
 #   If sync more recent than given quiettime, then quietly ignore
@@ -2410,6 +2412,8 @@ zrep_expire()
 
 
 # run this on 'master' side, to make other side master
+# Usage: zrep_failover fs[@snap]  [remotehost]
+#
 zrep_failover(){
 	typeset local=0 fs snap="" remotehost remotefs check
 
@@ -2440,7 +2444,13 @@ zrep_failover(){
 
 	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
 
-	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	if [[ "$2" != "" ]] ; then
+		remotehost="$2"
+	else 
+		remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	fi
+
+
 	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
 
 	print Setting readonly on local $fs, then syncing
@@ -2501,6 +2511,8 @@ zrep_failover(){
 }
 
 # run this on 'dest' side, to promote it to master
+# Usage: zrep_takeover fs[@snap]  [remotehost]
+#
 zrep_takeover(){
 	typeset fs snap remotehost remotefs check local=0
 
@@ -2520,11 +2532,18 @@ zrep_takeover(){
 
 	check=`$ZFSGETLVAL ${ZREPTAG}:master $fs`
 	if [[ "$check" = "yes" ]] ; then
-		zrep_errquit $fs is already master. Cannot takeover
+		zrep_errprint WARNING: $fs is already master on this host. 
+		zrep_errprint Presuming split-brain recovery mode ...
+		sleep 5
+
 	fi
 
 
-	remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	if [[ "$2" != "" ]] ; then
+		remotehost="$2"
+	else 
+		remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	fi
 	remotefs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
 
 
@@ -2532,6 +2551,8 @@ zrep_takeover(){
 
 		print Starting failover from remote side $remotehost
 		zrep_ssh $remotehost $ZREP_PATH failover $remotefs
+		# This will ssh back into us to set src host property, 
+		# and the other stuff, so we dont have to do that now.
 		exit $?
 	fi
 
@@ -2599,8 +2620,8 @@ usage(){
 	print 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
 	print 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
 	print 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
-	print 'zrep failover [-L] ZFS/fs'
-	print 'zrep takeover [-L] ZFS/fs'
+	print 'zrep failover [-L] ZFS/fs [remotehost]'
+	print 'zrep takeover [-L] ZFS/fs [remotehost]'
 	print 
 	print "Status and side operations"
 	print 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'

@@ -3,6 +3,8 @@
 
 
 # run this on 'master' side, to make other side master
+# Usage: zrep_failover fs[@snap]  [remotehost]
+#
 zrep_failover(){
 	typeset local=0 fs snap="" remotehost remotefs check
 
@@ -33,7 +35,13 @@ zrep_failover(){
 
 	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
 
-	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	if [[ "$2" != "" ]] ; then
+		remotehost="$2"
+	else 
+		remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	fi
+
+
 	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
 
 	print Setting readonly on local $fs, then syncing
@@ -94,6 +102,8 @@ zrep_failover(){
 }
 
 # run this on 'dest' side, to promote it to master
+# Usage: zrep_takeover fs[@snap]  [remotehost]
+#
 zrep_takeover(){
 	typeset fs snap remotehost remotefs check local=0
 
@@ -113,11 +123,18 @@ zrep_takeover(){
 
 	check=`$ZFSGETLVAL ${ZREPTAG}:master $fs`
 	if [[ "$check" = "yes" ]] ; then
-		zrep_errquit $fs is already master. Cannot takeover
+		zrep_errprint WARNING: $fs is already master on this host. 
+		zrep_errprint Presuming split-brain recovery mode ...
+		sleep 5
+
 	fi
 
 
-	remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	if [[ "$2" != "" ]] ; then
+		remotehost="$2"
+	else 
+		remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	fi
 	remotefs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
 
 
@@ -125,6 +142,8 @@ zrep_takeover(){
 
 		print Starting failover from remote side $remotehost
 		zrep_ssh $remotehost $ZREP_PATH failover $remotefs
+		# This will ssh back into us to set src host property, 
+		# and the other stuff, so we dont have to do that now.
 		exit $?
 	fi
 
