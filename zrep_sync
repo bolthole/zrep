@@ -375,6 +375,7 @@ _sync(){
 
 
 #User entrypoint, for synconly, which is the pair of snaponly
+#Keep it paired with zrep_sync
 zrep_synconly(){
 	#	annoyingly..need to make this almost identical to our current full
 	#	zrep_sync. but just skipping first steps :(
@@ -422,10 +423,11 @@ zrep_synconly(){
 
 
 #zrep_sync
-# make a new snapshot and copy it over.
+# User entrypoint
+# Make a new snapshot and copy it over.
 # Usage: zrep_sync [-q quiettime] (all|fs1 .. fsX)
 # See workflow.txt 
-# Will call synctosnap if a snapshot is given instead of fsname
+# SPECIAL CASE: Will call synctosnap if a snapshot is given instead of fsname
 # Normally, will bail out if another instance of zrep holds lock.
 # -q option says to check last update time of locked filesystems.
 #   If sync more recent than given quiettime, then quietly ignore
