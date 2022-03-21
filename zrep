@@ -612,14 +612,13 @@ zrep_ssh(){
 zrep_gettimeinseconds(){
 	typeset seconds
 	typeset PATH=$PERL_BIN:$PATH
-	# This SHOULD work in bash as well as ksh. but testing fails with bash 4.4
-	# seconds=`printf '%(%s)T' now`
-	seconds=`date '+%s'`
+
+	seconds=`printf '%(%s)T'`
 
 	if [[ -z "$seconds" ]] ; then
 		# Unfortunately, solaris date doesnt do '%s', so try perl first.
 		# It's more consistent.
-		seconds=`perl -e 'echo int(time);' 2>/dev/null`
+		seconds=`perl -e 'print int(time);' 2>/dev/null`
 	fi
 	if [[ -z "$seconds" ]] ; then
 		# attempt fallback if no perl present (eg: stock FreeBSD)
@@ -688,8 +687,8 @@ zrep_status(){
 			date="[NEVER]"
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
-			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
-			date=`printf "%(${ZREP_DATEFORMAT})T" "#$sentseconds"`
+			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
+			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" "$sentseconds"`
 			vdate=${date%:*}
 			fi
 
@@ -2653,10 +2652,10 @@ usage(){
 	echo 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
 	echo 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	echo 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
-	echo
+	echo ''
 	echo '   -q option to sync says to Quietly ignore locked filesystems'
 	echo '    that have synced more recently than the given amount of seconds'
-	echo
+	echo ''
 	echo 'Paired commands for high-transaction systems:'
 	echo '   zrep snaponly (ZFS/fs ... |all)'
 	echo '   zrep synconly (ZFS/fs ...|all)'

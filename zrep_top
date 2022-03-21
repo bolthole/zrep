@@ -42,10 +42,10 @@ usage(){
 	echo 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
 	echo 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	echo 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
-	echo
+	echo ''
 	echo '   -q option to sync says to Quietly ignore locked filesystems'
 	echo '    that have synced more recently than the given amount of seconds'
-	echo
+	echo ''
 	echo 'Paired commands for high-transaction systems:'
 	echo '   zrep snaponly (ZFS/fs ... |all)'
 	echo '   zrep synconly (ZFS/fs ...|all)'

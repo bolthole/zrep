@@ -602,14 +602,13 @@ zrep_ssh(){
 zrep_gettimeinseconds(){
 	typeset seconds
 	typeset PATH=$PERL_BIN:$PATH
-	# This SHOULD work in bash as well as ksh. but testing fails with bash 4.4
-	# seconds=`printf '%(%s)T' now`
-	seconds=`date '+%s'`
+
+	seconds=`printf '%(%s)T'`
 
 	if [[ -z "$seconds" ]] ; then
 		# Unfortunately, solaris date doesnt do '%s', so try perl first.
 		# It's more consistent.
-		seconds=`perl -e 'echo int(time);' 2>/dev/null`
+		seconds=`perl -e 'print int(time);' 2>/dev/null`
 	fi
 	if [[ -z "$seconds" ]] ; then
 		# attempt fallback if no perl present (eg: stock FreeBSD)
