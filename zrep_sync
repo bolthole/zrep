@@ -232,6 +232,8 @@ _snapandsync(){
 	fi
 
 	newsnap=`makesnap $srcfs`
+	# workaround wierd bash newline problem
+	newsnap=$(echo $newsnap)
 	if [[ "$newsnap" == "" ]] ; then
 		zrep_errquit zrep_sync could not create new snapshot for $srcfs
 	fi

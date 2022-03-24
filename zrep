@@ -1,0 +1,2873 @@
+#!/bin/bash --noprofile
+
+# For more detailed documentation, see zrep.txt or zrep.overview.txt
+# note to self: always make this 3 fields
+ZREP_VERSION=2.0.0
+
+################################################
+
+
+######## start of included files from zrep_top here
+########### File: zrep_vars
+
+# This should basically be included as common vars before all zrep stuff.
+# It contains all 'constant' definitions, as well as a few crucial
+# shared routines, such as lock handling ones.
+
+########################################################################
+# User tunable section. These may be overridden in user environment vars
+#
+# Additionally, we check /etc/default/zrep first.
+# If you want to allow users to override the options set there, then be sure
+# to use similar syntax to below:
+#   VAR=${VAR:-yourvalue}
+#
+
+if [[ -f /etc/default/zrep ]] ; then
+	. /etc/default/zrep
+fi
+
+SSH=${SSH:-ssh}
+ZREP_PATH=${ZREP_PATH:-zrep}  #Set to /full/path/to/zrep, if needed, for remote
+
+# Set this if you want to use a different zfs property to store zrep info.
+# default has things like zrep:dest-host and zrep:dest-fs
+# Change this to non-default, if you want to have multiple destinations.
+# You then need to run a separate zrep for each dest. 
+# In this case, I suggest all runs use non-default value.
+#  eg:  ZREPTAG=zrep-1, ZREPTAG=zrep-2. 
+#  or,  ZREPTAG=zrep-uk, ZREPTAG=zrep-us
+#  ** make sure value can be used in a snapshot name as well, because it
+#  ** will be !
+#  !! also, make sure variable is EXPORTED !!
+ZREPTAG=${ZREPTAG:-zrep}
+
+# If you'd like a little extra debug output define this env var to something
+#DEBUG=1
+
+#If set to yes(default), renames failed sync snapshots to "zrep_#####_unsent"
+ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
+
+# The default behavior for up-to-date ZFS filesystems, is that zrep will call
+# a zfs send/receieve that creates the remote filesystem with pretty much the same options.
+# However, sometimes, it is important to have the remote side have a diferent set of
+# options, BEFORE data has been transferred. ie: with remote using compression.
+# Note1: If set, this will stop the typical inheritance of src filesystem properties
+# Note2: It will force the "old zfs creation style" codepath for init. But not
+#  for the rest of zrep
+#ZREP_CREATE_FLAGS="-o compression=on,xx=yy"
+
+#Convenience hook.
+#By default, the remote fs should start with the same properties that the master has.
+#However, sometimes people want different ones.
+#If this var is set, a post-init ssh will be made, to set the requested properties.
+#While some zfs implementations support multiple values in a single set command,
+#Others do not. So if multiple are set here, multiple ssh calls will be made.
+# syntax: "prop1=value  [prop2=value prop3=value ... ]"
+#ZREP_INIT_REMOTE_PROPERTIES="compression=on"
+
+
+# The fastest alternative transport, IF you have multicore/thread CPUs,
+# would seem to be bbcp. If you have both, then you probably want to 
+# define something like this in your environment:
+#BBCP="bbcp -s 8"
+
+
+# You can apply filters to tweak throughput in various ways
+# Sometimes it helps receive performance to use mbuffer
+# Other times, you may have highly compressible data, and custom
+# compression routines such as lzop or lz4 may show significant
+# gains over ssh builtin compression
+#
+# lz4 example:
+# ZREP_OUTFILTER="lz4 -c"
+# ZREP_INFILTER="lz4 -d"
+#
+# mbuffer example:
+# ZREP_OUTFILTER="mbuffer -q -m 1G -s 128k"
+# ZREP_INFILTER="mbuffer -q -m 1G -s 128k"
+
+
+
+# If you want to recursively create/send snapshots, set this to -R
+#  (or use the -R option to BOTH zrep init and zrep sync
+#ZREP_R=-R
+
+
+# Sometimes, people may want to add extra flags to "zfs send".
+#   If your system supports it, then adding -c means that
+#   compressed filesystems will be sent in compressed form, rather
+#   then autouncompressing
+#    --raw is sometime used for encrypted filesystems
+#ZREP_SEND_FLAGS="-c --raw"
+
+# Theoretically identical in purpose to ZREP_SEND_FLAGS, but it turns out that when using 
+#   zfs send -t (resume-token)
+# you are only allowed to use a restricted set of flags. It normally uses what was
+# set the first time. 
+# So, for resume sends, we clear send flags, and only use what is set here below
+#ZREP_RESUME_FLAGS=-v
+
+
+
+# There are two types of zfs incremental snapshots.
+#   The default incremental flag is -I. 
+#   UNLESS you set ZREPTAG to something other than zrep, in which case
+#   you will have multiple zrep snapshot names probably going to different
+#   places, and expiration wont work properly on the remote sides
+#   So we will autochange incremental type to -i. .. unless you explicitly 
+#   set an override value for INC_FLAG in either case.
+#   Probably should have named this INCR_FLAG, but it's in use now
+#ZREP_INC_FLAG=-I
+
+# This currently doesnt do much, and is probably best not user-set.
+# I should probably make use of this more standardized.
+# But you can set it if you want
+#ZREP_VERBOSE=yes
+
+# Some odd people like to configure a non-root user for zrep,
+# and not give it expire permissions.
+# Well.. okay then...
+#ZREP_SKIP_EXPIRE=1
+
+# If you want to override uname -n, with an official
+#  canonical name for zrep:src-host, use this environment variable when 
+#  you run "zrep init"
+#ZREP_SRC_HOST=somehost.your.dom
+
+# Solaris hack to use native perl, which isnt always in $PATH,but should
+#   always be there. It's also simple, straightforward, and non-extended.
+#   On other OSs this path will not exist, so it will just fall back to
+#   use the system default perl. Unless user wants to specify perl path.
+#   If you dont have /usr/perl5, this wont hurt you so just ignore it.
+PERL_BIN=${PERL_BIN:-/usr/perl5/bin}
+
+
+# Hidden var, that isnt really meant to be used directly.
+# It gets set if you use "zrep sync -c". 
+# But you could theoretically set this directly instead if you prefer
+#ZREP_CHANGEDONLY=yes
+
+
+# This only gets used at init time
+ZREP_SAVE_COUNT=${ZREP_SAVE_COUNT:-5}
+
+# This currently is only used in zrep status
+# If you change it to %s then zrep will display 
+# seconds since the most resent snapshot was synced.
+ZREP_DATEFORMAT=${ZREP_DATEFORMAT:-%Y/%m/%d-%H:%M:%S}
+
+
+#########################################################################
+#########################################################################
+# Everything else below here, should not need to be touched. 
+#########################################################################
+#########################################################################
+
+_debugprint(){
+	if [[ "$DEBUG" != "" ]] ; then
+	   echo DEBUG: $@
+	fi	 
+}
+
+# This consolidated function is both for prettiness, and also
+# to make dealing with github issue #22 easier, about redirecting stderr
+_errprint(){
+	# I thought /dev/fd was ksh builtin, so safest. But it glitches on some linuxen.
+	# echo $@ >/dev/fd/2
+
+	echo $@ >&2
+
+}
+
+
+# First we have some "special" internal vars.
+# Then autodetect routines,
+# and then internal utilities such as locking functions.
+
+
+# zfs get syntax is so long and ugly, this is just an internal convenience
+# Get a zfs property on fs or snap. Get JUST the value, and only
+# a "locally set" value rather than an inherited one 
+ZFSGETLVAL="zfs get -H -o value -s local"
+# But.. sometimes you want to allow propagated values. like
+# the ones sent via the zrep_init setup
+ZFSGETVAL="zfs get -H -o value"
+#  **warning** !!
+# $ZFSGETLVAL returns "" on value not set. However,
+# $ZFSGETVAL  returns "-" on value not set. Grrr @zfs writers.
+
+
+# Work around a bug in gentoo ksh that breaks "ls -l" builtin.
+# It follows symlinks.
+# Would prefer to just override with _AST_FEATURES, but apparently,
+# that only gets checked when ksh first starts or something
+# Maybe use getconf itself somehow, if safe?
+# Trick would be to do
+# export _AST_FEATURES="PATH_RESOLVE = physical"
+# but cant.
+#### This is not even used any more!! But I'm keeping it in as
+#### documentation for historical knowlege
+#if getconf PATH_RESOLVE > /dev/null 2>&1 ; then
+#	LS=/bin/ls
+#else
+#	LS=ls
+#fi
+
+# -n enforces "no dereference" of existing symlink, which is default
+# behaviour on some, but not all systems, apparently
+#LN_S="ln -n -s"
+# I dont use ln any more, but leaving this for useful historical info.
+# side note: ksh built-in ln, DOES NOT SUPPORT -n !
+
+
+if [[ "$ZREP_SRC_HOST" != "" ]] ; then
+	Z_LOCAL_HOST=${ZREP_SRC_HOST}
+else
+	Z_LOCAL_HOST=`uname -n`
+	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
+fi
+
+
+# Slightly ugly to implement this as a global flag. But... it makes 
+# a lot of things simpler, like "ssh zrep xyhz" for multiple things.
+if [[ "$1" == "-R" ]] ; then
+	ZREP_R="-R"
+	shift
+fi
+
+if [[ "$ZREP_R" == "-R" ]] ; then
+	# ZREP_R is a user-settable env var. It also gets used in
+	# "zfs send"  commandlines.  However.. we also need to call
+	# "zfs snap".. which requires LOWERCASE R. So this is an automatically set
+	# mirror of that.
+	Z_SNAP_R="-r"
+fi
+
+if [[ "$MBUFFER" != "" ]] ; then
+	_errprint WARNING: MBUFER variable deprecated in zrep
+	_errprint WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead
+	ZREP_OUTFILTER="$ZREP_OUTFILTER $MBUFFER"
+	ZREP_INFILTER="$MBUFFER $ZREP_INFILTER"
+fi
+
+# I HATE having to use a global for this.
+# However, there is apparently a bug in typeset behaviour
+# introduced in ksh93. UGHHH.
+#ZREP_FORCE="-f"
+
+# Sneaky vars to avoid having to use if clauses in the core code
+# HOWEVER! Note that ksh doesnt seem to evaluate pipe symbols when normaly
+# expanded in a command line. So, have to use 'eval' to get them to register
+if [[ "$ZREP_OUTFILTER" != "" ]] ; then
+	Z_F_OUT="| $ZREP_OUTFILTER"
+fi
+if [[ "$ZREP_INFILTER" != "" ]] ; then
+	Z_F_IN="$ZREP_INFILTER |"
+fi
+
+
+# used to have polymorphic assign of ZREP_INC_FLAG here, but had
+# to move it to AFTER checking if -t option used
+
+# full name for this should probably be something like,
+# PROPTYPES_THAT_ZREP_STATUS_AND_LIST_CAN_USE. But that's too long :)
+# Not easy to check if property types allow type "received".
+# Ancient systems do not allow it
+# So, just tie this to MU6 related check,like HAS_SNAPPROPS, lower down
+PROPTYPES="local,received" 
+
+
+
+# dump the usage message, and check for capabilities
+# make sure we dont spew for non-root, so that "zrep status" works
+case `id` in
+	*'(root)'*)
+	ZREP_RUNDIR=${ZREP_RUNDIR:-/var/run}
+	;;
+	*)
+	ZREP_RUNDIR=${ZREP_RUNDIR:-/tmp}
+	;;
+esac
+# allow override, for code test utility
+zrep_checkfile=${_ZREP_CHECKFILE:-$ZREP_RUNDIR/zrep.check.$$}
+
+
+zfs >$zrep_checkfile 2>&1 
+# Previously did a bit of a hack job for feature detection.
+# Now attempting to make it smarter,
+# at the expense of some startup speed :(
+Z_HAS_X=0	  # can use recv -x
+Z_HAS_REC_U=0	  # can use recv -u
+Z_HAS_REC_O=0     # can use recv -o (note: SmartOS -o is NOT WHAT WE WANT)
+Z_HAS_SNAPPROPS=0
+
+if grep 'help' $zrep_checkfile >/dev/null ;then
+   # Presume Solaris 11, which has all features, but
+   # does not allow line-by-line feature detection easily
+	Z_HAS_X=1	  # can use recv -x
+	Z_HAS_REC_U=1	  # can use recv -u
+	Z_HAS_REC_O=1     # can use recv -o
+	Z_HAS_SNAPPROPS=1 # can set properties on snapshots
+			  # This also lets me set "last synced" timestamps
+			  # otherwise cant use zrep:sent sanely.
+			  # Would lose information on rollbacks
+
+	DEPTHCAP="-d 1" # limits "list -r"
+
+else
+	if grep 'receive[ |].*-[a-zA-Z]*x' $zrep_checkfile >/dev/null ;then
+		Z_HAS_X=1	  # can use recv -x
+	fi
+	if grep 'receive .*-[a-zA-Z]*u' $zrep_checkfile >/dev/null ;then
+		Z_HAS_REC_U=1	  # can use recv -u
+	fi
+	# This bit is unfortunately ugly. Two problems:
+	# SmartOS and FreeBSD implemented recv -o WRONG! 
+	# They use -o to set "origin", not to set options
+	# So no Z_HAS_REC_O for it!
+	# But also, -o doesnt even show in the output of solaris zfs usage. sigh.
+	# So have to be creative.
+	# Note that some systems have '-o' directly after create, and some do not.
+	if grep 'create .*-o prop' $zrep_checkfile >/dev/null ;then
+		# This is probably nested under the create check, because we
+		# only use recv -o, right after using create -o.
+		# However, we now ALWAYS use create -o, so.. may be unneccesary
+		# to nest
+		# Skip zfs that uses recv -o origin
+		if ! grep 'rec[ev].*-o origin' $zrep_checkfile >/dev/null &&
+		     grep 'rec[ev].*-o '       $zrep_checkfile >/dev/null ; then
+		     Z_HAS_REC_O=1 # can use recv -o
+		fi
+	fi
+	if grep 'set .*snapshot' $zrep_checkfile >/dev/null ;then
+		Z_HAS_SNAPPROPS=1 # can set properties on snapshots
+	fi
+	if grep 'list.*-d' $zrep_checkfile >/dev/null ;then
+		DEPTHCAP="-d 1" # limits "list -r"
+	else
+		DEPTHCAP=""
+		echo WARNING: old ZFS version detected with no depth protection
+		echo WARNING: You may not nest zrep managed filesystems
+	fi
+fi
+
+if ((!Z_HAS_SNAPPROPS)) ; then
+	PROPTYPES="local"
+fi
+
+rm $zrep_checkfile
+
+
+Z_LOCK_RETRY=${Z_LOCK_RETRY:-10}  # default 10 second  retry, 1 per sec
+
+# This is named like a global override. and CAN be overridden by user.
+# But should only be used in zrep_vars module
+# Note: This path is why you should only give zfs privileges to a SINGLE USER.
+Z_GLOBAL_LOCKFILE=$ZREP_RUNDIR/zrep.lock
+
+if [[ "$Z_GLOBAL_PID" == "" ]] ; then
+	export Z_GLOBAL_PID=$$
+fi
+
+Z_SETHOLD=${Z_SETHOLD:-"zfs hold"}
+# if your zfs isnt new enough, and you like to live dangerously, 
+# you can skip setting holds by using this instead.
+# Although I may not have gotten around to using this in the code either!
+#Z_SETHOLD="echo skipping zfs hold on"
+
+
+# return PID of proc holding global lock, or nothing
+zrep_global_lock_pid(){
+	cat $Z_GLOBAL_LOCKFILE 2>/dev/null
+}
+
+# return 0 if "we" are holding lock, 1 otherwise
+# Note that we check for "us, OR our global parent", if different
+#
+zrep_has_global_lock(){
+	lockpid=`zrep_global_lock_pid`
+
+	if [[ "$lockpid" == "" ]] ; then return 1 ; fi
+	if [[ "$lockpid" != "$Z_GLOBAL_PID" ]] ; then
+		if [[ "$lockpid" != "$$" ]] ; then
+			_debugprint 'has_global_lock? no. lock held by PID' $lockpid
+			return 1
+		fi
+	fi
+
+	return 0
+}
+
+
+
+#Note: it is an ERROR to call this if you already have lock
+#It is binary, not recursive ownership.
+#We do NOT try to clean up stale global lock.
+#This is a shortterm lock. It should never be stale. If it is,
+#it could indicate a more serious system/zrep problem happening.
+zrep_get_global_lock(){
+	typeset retry_count=$Z_LOCK_RETRY
+	typeset lockpid
+
+	set -C  #noclobber
+	# ignore error this time, because we retry anyway.
+	echo $Z_GLOBAL_PID > $Z_GLOBAL_LOCKFILE 2>/dev/null && return 0  
+
+	# Otherwise, deal with fail/retry.
+	# Careful of race conditions on stale CLEAN UP!
+	# How to resolve problem where
+	# * multiple instances running
+	# * one instance detects stale
+	# * multiple instances decide to remove it
+	# *  ONE removes it and creates new symlink
+	# *  SECOND one was paused between detection and removal.. so removes
+	# * VALID lockfile?!?!
+	# For now, must request manual cleanup
+	while (( retry_count > 0 )); do
+		sleep 1
+		errmsg=`echo $Z_GLOBAL_PID 2>&1 > $Z_GLOBAL_LOCKFILE `
+		if [[ $? -eq 0 ]] ; then return 0 ; fi
+
+		retry_count=$((retry_count-1))
+		lockpid=`zrep_global_lock_pid`
+		if [[ "$lockpid" -le 0 ]] ; then
+			zrep_errquit ERROR: invalid contents for global lock file $Z_GLOBAL_LOCKFILE
+		fi
+		# Does the process holding the lock actually still exist?
+		# In theory, teenietiny chance of race condition for false stale. That's okay.
+		kill -0 $lockpid 2>/dev/null
+		if [[ $? -ne 0 ]] ; then
+			_errprint ERROR: stale global lock file
+			_errprint ERROR: shut down ALL zrep instances, then manually remove
+			_errprint $Z_GLOBAL_LOCKFILE
+		fi
+
+	done
+
+	echo Failed to acquire global lock
+	echo Error message was: $errmsg
+	return 1
+	
+}
+
+zrep_release_global_lock(){
+	if zrep_has_global_lock ; then
+		rm $Z_GLOBAL_LOCKFILE
+		return $?
+	else
+		echo ERROR: zrep_release_global_lock called, but do not own lock
+		return 1
+	fi
+}
+
+# returns PID of zrep process holding a lock on filesystem, if there is one.
+# NOTE: If "-s local" used, prints "" if lock unheld
+# If no -s specified, prints "-" if lock unheld
+zrep_fs_lock_pid(){
+	$ZFSGETLVAL ${ZREPTAG}:lock-pid $1
+}
+zrep_has_fs_lock(){
+	typeset check=`$ZFSGETLVAL ${ZREPTAG}:lock-pid $1`
+	if ((check == $$)) ; then
+	return 0
+	else
+	return 1
+	fi
+}
+
+# use global lock first (if not already), then
+# grab lock on individual fs
+# return 1 on fail, 0 on lock acquired
+# Note that it is an ERROR to call this, if you already have lock
+# Note2: if a dead process has lock, it will forcibly override and
+# acqure lock
+zrep_lock_fs(){
+	# global lock is slow. so do quickcheck first.
+	typeset check=`zrep_fs_lock_pid $1` newcheck
+	if [[ "$check" != "" ]] ; then
+		# See if owning process still exists.
+		kill -0 $check 2>/dev/null
+	        if [[ $? -eq 0 ]] ; then
+			_debugprint lock is still held by $check
+			return 1
+		else
+			_debugprint lock is no longer held by $check
+		fi
+	fi
+
+	zrep_get_global_lock
+	if [[ $? -ne 0 ]] ; then
+		if [[ "$DEBUG" != "" ]] ; then
+		_errprint zrep_lock_fs: failed to get global lock. PID=$$ fs=$1
+		fi
+		return 1
+	fi
+
+	# Yes we already checked this, but we didnt have global lock.
+	# Avoid race condition and doublecheck now that we have global lock.
+	if [[ "$check" != "" ]] ; then
+		newcheck=`zrep_fs_lock_pid $1`
+		if [[ "$newcheck" != "$check" ]] && [[ "$newcheck" != "" ]]
+		then
+			# oops. someone else beat us to it.
+			# Better luck next time.
+			zrep_release_global_lock
+			return 1
+		fi
+		# Keep in mind that stdin/out could be busy
+		# Cant use regular debugprint
+		if [[ "$DEBUG" != "" ]] ; then
+			_errprint  overiding stale lock on $1 from pid $check
+		fi
+	fi
+	
+	zfs set ${ZREPTAG}:lock-pid=$$ $1
+	zfs set ${ZREPTAG}:lock-time=`date +%Y%m%d%H%M%S` $1
+	if [[ "$DEBUG" != "" ]] ; then
+		_errprint DEBUG: zrep_lock_fs: set lock on $1
+	fi
+	zrep_release_global_lock 
+}
+
+# release lock, if we have it.
+# Since this could be called by an exit cleanup routine blindly,
+# dont exit program if we dont have lock. But do return error
+zrep_unlock_fs(){
+	typeset lockpid=`zrep_fs_lock_pid $1`
+	if ((lockpid != $$)) ; then return 1; fi
+
+	#since "we" already have it locked, no need to get global lock first
+	zfs inherit ${ZREPTAG}:lock-time $1
+	zfs inherit ${ZREPTAG}:lock-pid $1
+	if [[ "$DEBUG" != "" ]] ; then
+		_errprint zrep_unlock_fs: unset lock on $1
+	fi
+
+	return 0
+}
+
+
+# Quit whole program with error status, outputting args to stderr
+# Release global lock if we are holding it
+#   Unless we're running in parallel batch mode
+#   I'll need to plan that out more carefully!
+#
+zrep_errquit(){
+	_errprint Error: "$@"
+
+	if zrep_has_global_lock ; then
+		if [[ "$$" -ne "$Z_GLOBAL_PID" ]] ; then
+			echo EXTRA-ERROR: Running in child proc.
+			echo 'Not sure whether to release global lock. NOT releasing!'
+			exit 1
+		else
+
+			zrep_release_global_lock
+		fi
+	fi
+	exit 1
+}
+
+# Optimization wrapper for ssh: if destination host is ourself, dont use ssh.
+# Just run the local command mentioned
+# Be careful about quotes here. In fact, try not to use any.
+# Usage:  zrep_ssh desthost  commands_for_ssh go_here
+zrep_ssh(){
+	typeset ssh_cmd
+
+	case "$1" in
+		localhost|$Z_LOCAL_HOST)
+			ssh_cmd="eval"
+			shift
+			$ssh_cmd "$@"
+			return $?
+		;;
+	esac
+	
+	if [[ "$2" == "$ZREP_PATH "* ]] && [[ "$DEBUG" != "" ]]
+	then
+		#okay yes this is horrible. sigh.
+		#we normally go to great lengths to preserve ssh arg as single quoted string,
+		# to identically match passed in arg quoting.
+		#but this next line undoes that
+	    
+		set -- $*
+
+		ssh_cmd="$SSH $1 $ZREP_PATH -D"
+		shift
+		shift
+		$ssh_cmd "$@"
+
+		return $?
+	fi
+
+	ssh_cmd="$SSH $1"
+	shift
+	$ssh_cmd "$@"
+	return $?
+
+}
+
+zrep_gettimeinseconds(){
+	typeset seconds
+	typeset PATH=$PERL_BIN:$PATH
+	# This SHOULD work in bash as well as ksh. but testing fails with bash 4.4
+	# seconds=`printf '%(%s)T' now`
+	seconds=`date '+%s'`
+
+	if [[ -z "$seconds" ]] ; then
+		# Unfortunately, solaris date doesnt do '%s', so try perl first.
+		# It's more consistent.
+		seconds=`perl -e 'echo int(time);' 2>/dev/null`
+	fi
+	if [[ -z "$seconds" ]] ; then
+		# attempt fallback if no perl present (eg: stock FreeBSD)
+		seconds=`date +%s`
+	fi
+	if [[ -z "$seconds" ]] ; then
+		zrep_errquit zrep_gettimeinseconds doesnt know what to do
+	fi
+	echo $seconds
+}
+
+###### File: zrep_status
+
+# be sure to have included zrep_vars
+
+# This file contains all "status" related routines.
+# It should be folded into final "zrep" script
+
+
+
+
+#
+#Give this a top level zrep registered filesystem, NOT snapshot.
+# Will echo out various status points, such as last sync date.
+# Or if given no args, will echo out sync date for all zrep mastered fs
+# Note that the date given is time of SNAPSHOT, not time sync completed.
+#
+zrep_status(){
+	typeset check fs srcfs desthost destfs date lastsynced
+	typeset verbose=0 vdate="" monitorr=0
+	typeset printall=0
+	
+	if [[ "$1" == "-v" ]] ; then
+		verbose=1 ; shift
+	fi
+	if [[ "$1" == "-m" ]] ; then
+		monitor=1 ; shift
+	fi
+
+	if [[ "$1" == "" ]] ; then
+		set -- `zrep_list_master`
+	elif [[ "$1" == "-a" ]] ; then
+		set -- `zrep_list`
+		printall=1
+	fi
+
+	while [[ "$1" != "" ]] ; do
+		fs="$1"
+
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
+		if [[ "$destfs" == "-" ]] || [[ "$destfs" == "" ]]; then
+			zrep_errquit "$fs is not a zrep registered filesystem"
+		fi
+
+		if ((monitor)) ; then
+			# have to allow for ONE unsent, since it might be in progress
+			typeset count=`getunsentcount $fs`
+			if [[ "$count" -gt 1 ]] ; then
+				echo WARNNING: unset snapshot count at $count
+			fi
+			continue
+		fi
+
+		lastsynced=`getlastsnapsent $fs`
+		if [[ "$lastsynced" == "" ]] ; then
+			date="[NEVER]"
+		else
+			if (( Z_HAS_SNAPPROPS )) ; then
+			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
+			date=`printf "%(${ZREP_DATEFORMAT})T" "#$sentseconds"`
+			vdate=${date%:*}
+			fi
+
+			#This is also a fallback for no-perl FreeBSD systems
+			if [[ "$vdate" == "" ]] ; then
+			date=`$ZFSGETVAL creation $lastsynced`
+			vdate=${date#????}
+			fi
+		fi
+		if ((printall)) && ((verbose)) ; then
+			# If we are printing out  ALL filesystems,
+			# then we have to make sure left side is always
+			#  "src filesystem", not "named filesystem"
+			# then we have to check what the src fs is
+			srcfs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
+		else
+			# Yes, okay, if -a is used, then
+			# technically, this isnt always "src".
+			# but it prints out right, so close enough :)
+			srcfs="$fs"
+		fi
+
+		if ((verbose)) ; then
+			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+			printf "%-25s->%-35s %s\n" $srcfs "$desthost:$destfs" "$vdate"
+		else
+			printf "%-52s " $srcfs
+			echo "last: $date"
+		fi
+		shift
+	done
+}
+
+
+_master_fs_names(){
+	zfs get -H -o name -s local ${ZREPTAG}:master "$@"
+}
+
+
+# convenience function to list only local filesystems for which we are
+# zrep master for.
+# In contrast, zrep_list, lists ALL zrep registered filesystem, at the moment.
+# 
+# Annoyingly... it would be way faster if we could just stick with the
+# pure "zfs get" implementation, but we also need to deal with the zone
+# issue. When a single zfs filesystem is visible aross multiple zones,
+# we dont want them all thinking they are master
+#
+# Durn. Individual validation required.
+zrep_list_master(){
+	typeset srchost
+	for fs in `_master_fs_names "$@"` ; do
+		srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+		if [[ "$srchost" == "$Z_LOCAL_HOST" ]] ; then
+			echo $fs
+		fi
+	done
+}
+
+
+# Given ONE filesystem, print all zrep properties for it.
+# Note that this is internal routine. we do not validate input.
+list_verbose(){
+	echo $1:
+		# sneaky cheat: only user-set properties will
+		# match these 'source' types. So "grep zrep:" is not
+		# neccessary. Although we may pick up other user-set values,
+		# but that is not neccessarily a bad thing
+	zfs get -H -o property,value -s $PROPTYPES all $1
+	echo "last snapshot synced: `getlastsnapsent $1`"
+
+}
+
+
+# Note: called by both user, AND by zrep_status
+#
+# Usage:
+# zrep_list [-v]
+# zrep_list [-L]
+# zrep_list [-v] fs1 fs2
+#(also zrep_list -s which passes to zrep_list_snaps)
+#
+# list all zrep-initialized filesystems (NOT snapshots..)
+# If no specific fs listed, will show master, AND received filesystems,
+#    unless -L given (in which case, only local masters will be shown)
+#
+# Normal output is one line per fs.
+#
+#  -v gives all properties of each filesystem
+#  Give only one of -L or -v 
+#
+zrep_list(){
+	typeset fslist="" verbose=0
+	# This works because we only set this property on the actual fs.
+	# "source type" on snapshots for this property is "inherited" not local
+	#  or "received"
+	typeset printcmd="zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs"
+
+	case $1 in
+		-v)
+		verbose=1
+		printcmd=list_verbose
+		shift
+		;;
+		-L)
+		# reminder: cant have this, AND verbose.
+		printcmd="zrep_list_master"
+		shift
+		;;
+		-s)
+		shift
+		zrep_list_snaps "$@"
+		return
+		;;
+	esac
+
+
+	# If specific fs(s) named, iterate over them and quit
+	if [[ "$1" != "" ]] ; then
+		while [[ "$1" != "" ]] ; do
+			if zfs list -t filesystem,volume $1 >/dev/null 2>&1 ; then
+				$printcmd $1
+			else
+				zrep_errquit "Expecting filesystem, but got $1"
+			fi
+			shift
+		done
+		return
+	fi
+
+	# Must be "list all" now. But which output format?
+
+	# If not verbose, we have a nice shortcut to just list
+	# all filesystems that zrep has marked.
+	if (( $verbose == 0))  ; then
+		$printcmd
+		return
+	fi
+
+
+	# oh well. have to step through them one by one now, to
+	# echo out the properties associated with each zrep filesystem
+
+	fslist=`zfs get -H -o name -s $PROPTYPES ${ZREPTAG}:dest-fs`
+
+	for fs in $fslist ; do
+		$printcmd $fs
+		echo ""
+	done
+	
+	
+}
+
+# Similar to zrep_list, but lists SNAPSHOTS instead of filesystems
+# The purpose is to allow a sysadmin to see easily when snapshots have
+# been created.
+# Either give a list of specific filesystems, or no args, which
+# will attempt to list all zrep-related snapshots
+# It will list only zrep MASTER filesystem snapshots, in that case.
+zrep_list_snaps(){
+	if [[ "$1" == "" ]] ; then
+		set -- `_master_fs_names`
+		if [[ "$1" == "" ]] ; then
+			_errprint "No zrep master filesystems found"
+			return 0
+		fi
+	fi
+
+	while [[ "$1" != "" ]] ; do
+	      zfs list -r -t snapshot -o name,creation $1
+	      shift 
+	done
+	
+}
+
+# Given a filesytem name, prints out full snapshot name of last successfully synced snap
+zrep_getlastsent(){
+	if [[ "$1" == "" ]] ; then
+		_errprint ERROR: zrep uptodate requires the name of a zrep managed fs
+		exit 1
+	fi
+
+	echo `getlastsnapsent $1`
+
+}
+
+# Give a filesystem name. 
+#  Gets last sent snapshot, and determines if there have
+# been any writes since then.
+# If not, then file sytem is "up to date"
+zrep_uptodate(){
+	if [[ "$1" == "" ]] ; then
+		_errprint ERROR: zrep uptodate requires the name of a zrep managed fs
+		exit 1
+	fi
+	
+	typeset bytecount
+	bytecount=`$ZFSGETVAL written "$1"`
+	# two fail conditions are: 
+	# 1. not zrep filesystem
+	# 2. system does not support "zfs get written"
+	# Either way we count it as "not up to date"
+
+	if [[ $bytecount == 0 ]] ; then
+		return 0
+	else
+		return 1
+	fi
+}
+################ File: zrep_snap
+# be sure to have included zrep_vars
+
+# This file contains routines related to 
+# "make new snapshot, using next sequence number".
+# So it thus includes all snap sequence related routines
+# It may contain "sync snapshot" related routines for now.
+# It also is definitive for the format of snapshot names
+# It also contains most "query status of snaps" type routines,
+#  such as "getlastsnapsent"
+#
+# Normal style for making a snapshot and syncing it:
+#   1.  create a snapshot.
+#   2.  sync it over
+#   3.  set "zrep:sent" on *snapshot*, with timestamp in seconds
+# Old-nasty-zfs compat mode:
+#   Step 3. Add/update "zrep:lastsent->snapname", and 
+#           "zrep:lastsenttime->timestamp",  on *filesystem*
+#
+######################################################################
+
+
+#pass in a zrep ZFS snapshot name. strip our our sequence number and echo in back
+_getseqnum(){
+	echo "$1" | sed 's/.*@'${ZREPTAG}'_\(......\).*/\1/'
+}
+
+# By observation, 'zfs list' shows snapshots order of creation.
+# last listed, should be last in sequence.
+# But, dont take chances!!
+getlastsequence(){
+	typeset lastval
+	#remember, filesystems can have '_' in them
+	_getseqnum `getlastsnap $1`
+	
+}
+
+# prints out last snapshot zrep created, going purely by sequence.
+# Note: "last created", which may or may NOT be "last successfully synced". 
+# This is basically "getallsnaps |tail -1"
+getlastsnap(){
+	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
+	   sed -n "/@${ZREPTAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/"p |
+	   sort | tail -1
+}
+
+# Usage:   getlastsnapsent zpool/FSNAME
+#   note to self: in modern zrep, ALL successfuly synced snapshots have
+#   a timestamp value,   zrep:sent=TIMESTAMPHERE
+#   Thats why the sort and tail is neccessary
+getlastsnapsent(){
+	# arg.  more efficient if we can just return value directly,
+	# but i'm using backwards compat :(
+	typeset lastsent
+	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1 |
+	   sort | tail -1`
+	if [[ "$lastsent" != "" ]] ; then
+		echo $lastsent
+		return
+	fi
+
+	# Fallback method, for backwards compat with older ZFS code,
+	# since it cant set properties on snapshots
+	zfs get  -H -o value -s local ${ZREPTAG}:lastsent $1
+}
+
+# HORRIBLY DANGEROUS
+# ONLY should be used by zrep_sentsync.
+# Kind of the inverse to getlastsnapsent. But should NOT use "fallback method" in getlastsnapsent.
+# This is only for zrep_sentsync, which only uses newer method.
+_clearlast(){
+	typeset lastsent
+	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1|tail -1`
+
+	while [[ "$lastsent" != "" ]] ; do
+		_errprint WARNING: clearing sent value from  $lastsent
+		zfs inherit ${ZREPTAG}:sent $lastsent
+		lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1|tail -1`
+	done	
+
+}
+
+# return a number, which is the difference between the lastsnapshot counter, and
+# the last successfully synced snapshot counter.
+# In theory, can only be positive.
+# 
+getunsentcount(){
+	typeset lastsynced lastsnap lastsyncedseq lastsnapseq
+	lastsynced=`getlastsnapsent $1`
+	lastsnap=`getlastsnap $1`
+
+	if [[ "$lastsynced" == "$lastsnap" ]] ; then
+		return 1
+	fi
+
+	lastsyncedseq=`getseqnum $lastsynced`
+	lastsnapseq=`getseqnum $lastsnap`
+
+	lastsyncedseq=$((16#$lastsyncedseq))
+	lastsnapseq=$((16#$lastsnapseq))
+
+
+	if [[ "$lastsyncedseq -lt 1 ]] ; then
+		zrep_errquit Error: cannot parse $lastsynced
+	fi
+	if [[ "$lastsnapseq -lt 1 ]] ; then
+		zrep_errquit Error: cannot parse $lastsnap
+	fi
+
+	echo $(( $lastsnapseq - $lastsyncedseq ))
+
+}
+
+# outputs time in seconds, of when the last successful sync for the
+# filesystem was done. (in format compatible with zrep_gettimeinseconds() )
+#  Note that this is time of actual sync, not snapshot creation time.
+#
+# This unfortunately needs to be compatible with both new way, and
+# old-nasty-hack-way
+# 
+# In future, may take optional argument of which HOST to check 
+# sync with. But since I currently only suport one host per fs... oh well.
+# If never synced, will return 1, and echo ""
+#
+getlastsynctime(){
+	typeset fs lastsent senttime
+
+	if [[ "$1" == "" ]] ; then
+		zrep_errquit Internal error: no arg to getlastsynctime
+	fi
+	fs="$1"
+
+	# Deal with possibly upgraded system;
+	#   Check "lastsent", only as fallback.
+
+	# copy from getlastsnapsent, but only using newest method
+	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $fs |
+	   sort | tail -1`
+	senttime=`zfs get  -H -o value ${ZREPTAG}:sent $lastsent`
+	if [[ "$senttime" != "" ]] ; then echo $senttime ; return 0; fi
+
+	# ooops. try fallback to nasty old zfs-compat style
+	senttime=`zfs get -H -o value ${ZREPTAG}:lastsent $fs`
+	echo $senttime
+	if [[ "$senttime" != "" ]] ; then return 0; fi
+	return 1
+}
+
+#This is for synctosnap, and also zrep_expire
+getallsnaps(){
+	zfs list -t snapshot -H -o name $DEPTHCAP -r $1 |
+	   sed -n "/@${ZREPTAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]/"p |
+	   sort
+}
+
+# list all snapshots of the given filesystem, that are made by this prog
+# arg: fs
+list_autosnaps(){
+	if [[ "$1" == "" ]] ; then
+		zrep_errquit "zrep internalerror: no arg for list_autosnaps"
+	fi
+ 	zfs list $DEPTHCAP -r -H -o name -t snapshot $1 |
+		grep "@${ZREPTAG}_[0-9a-f][0-9a-f]"
+	# Make sure this format matches other routines in here
+	# Okay to just check first few digits though
+}
+
+# User entrypoint. Part of pair: snaponly, sendonly
+# Just makes snapshot. 
+zrep_snaponly(){
+	typeset srcfs
+
+	if [[ "$1" == "all" ]] ; then
+		set -- `zrep_list_master`
+		if [[ "$1" == "" ]] ; then
+			exit
+		fi
+	fi
+
+	while [[ "$1" != "" ]] ; do
+		srcfs="$1" ;shift
+		zrep_lock_fs $srcfs
+		if [[ $? -ne 0 ]] ; then
+			# this function is supposed to be coordinated by user
+			# therefore, if something else is competing,
+			# coordination has failed. no retry.
+			zrep_errquit zrep snaponly failed for $srcfs: cannot get lock
+			
+		fi
+
+		makesnap $srcfs ||zrep_errquit snaponly for $srcfs failed
+
+		zrep_unlock_fs $srcfs
+		
+	done	
+}
+
+# 
+# creates next snapshot in sequence
+# consider holding lock here
+# Caller must have zrep lock on filesystem:
+#   we verify with zrep_has_fs_lock
+makesnap(){
+	typeset  check oldseq newseq="" newseqX newsnap
+
+	#sanity checks first!
+	check="`$ZFSGETVAL ${ZREPTAG}:src-host $1`"
+	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
+		_errprint ERROR: we are not master host for $1
+		_errprint master is $check, we are $Z_LOCAL_HOST
+		exit 1
+	fi
+
+	zrep_has_fs_lock $1
+	if [[ $? -ne 0 ]] ; then
+		_errprint Internal error:  makesnap fail, no lock on $1
+		exit 1
+	fi
+
+	oldseq=`getlastsequence $1`
+	# This means input is base 16
+	newseq=$((16#$oldseq))
+
+	newseqX=$(printf "%.6x" $(($newseq + 1))  )
+
+
+	#_errprint DEBUG old=$oldseq new=$newseqX
+	newsnap="$1@${ZREPTAG}_$newseqX"
+	
+	zfs snapshot $Z_SNAP_R $newsnap
+	if [[ $? -eq 0 ]] ; then
+		echo -n $newsnap; return 0
+	else
+		return 1
+	fi
+	
+}
+
+## This is the implentation for the "zrep clear" command
+## Purpose is to remove all zrep related hooks from a local filesystem. 
+##  (NOT delete it)
+## Will remove zrep snapshots and zfs zrep: properties
+zrep_clear(){
+
+	if [[ "$1" == "" ]] ; then
+		zrep_errquit clear command requires an argument
+	fi
+
+	echo "WARNING: Removing all zrep configs and snapshots from $1"
+	echo " (for TAG=${ZREPTAG})"
+
+	
+	if [[ "$ZREP_FORCE" != "-f" ]] ; then
+		echo Continuing in 10 seconds
+		sleep 10
+	fi
+
+	_clearsnaps $1
+	_clearvars $1
+}
+
+_clearsnaps(){
+	echo Destroying any zrep-related snapshots from $1
+	snaplist=`list_autosnaps $1`
+	for snap in $snaplist ; do
+		zfs destroy -r $snap
+	done
+}
+
+_clearvars(){
+	echo Removing zrep-related properties from $1
+	proplist=`zfs get -H -o property all $1|grep ${ZREPTAG}:`
+	for prop in $proplist ; do
+		zfs inherit $prop $1
+	done
+}
+
+## This is a special internal routine, used only by zrep_init, 
+## to reset target fs to pre-zrep state.
+## call with "srcfs  errmsg1 errmsg2..."
+## It will also REMOVE REMOTEFS if set in PROPERTIES!!
+clearquit(){
+	remhost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
+	remfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
+
+	if [[ $? -eq 0 ]] && [[ "$remhost" != "-" ]] && [[ "$remfs" != "-" ]]; then
+		zrep_ssh $remhost zfs destroy -r $remfs
+	fi
+	_clearsnaps $1
+	_clearvars $1
+
+	shift
+	zrep_errquit "$@"
+}
+
+
+# Shared internal routine.
+#
+# Set the to/from properties on a fs for zrep
+# Called by zrep_init  and zrep_changeconfig
+# Usage: 
+#  setfsconfigs srcfs desthost destfs
+#  setfsconfigs -d destfs srchost srcfs
+#
+setfsconfigs(){
+	typeset srchost srcfs desthost destfs fsname
+
+	if [[ "$1" == "-d" ]] ; then
+		srchost="$3"
+		srcfs="$4"
+		desthost=$Z_LOCAL_HOST
+		destfs="$2"
+		fsname=${destfs}
+	else
+		srchost=$Z_LOCAL_HOST
+		srcfs="$1"
+		desthost="$2"
+		destfs="$3"
+		fsname=${srcfs}
+	fi
+
+
+	if [[ "$destfs" == "" ]] ; then
+		zrep_errquit "zrep: no dest fs specified"
+	fi
+	zfs list $fsname >/dev/null ||zrep_errquit "filesystem $fsname must exist already"
+
+	#
+	# This is really only for when we are called from init I think?
+	#
+	case $destfs in
+		# Originally, I had this passthrough only if fsname was at end
+		# However,we must allow destfs to have different leaf name,
+		# for circumstances such as replication to same host
+		*/*)
+			:
+			;;
+		*)
+			# Only the pool name given.
+			# With our curent workflow, that can ONLY WORK
+			# if recent versions of ZFS are in use.
+			if (( Z_HAS_REC_U )) ; then
+				echo WARNING: forcing override sync to top level pool $desthost:$destfs
+				echo Not using a usual sub-filesystem
+				sleep 5
+			else
+				zrep_errquit older zfs version, cannot initialize top level pool
+			fi
+			;;
+	esac
+
+	zfs set ${ZREPTAG}:src-fs=$srcfs		$fsname
+	zfs set ${ZREPTAG}:src-host=$srchost		$fsname
+	zfs set ${ZREPTAG}:dest-fs=$destfs		$fsname
+	zfs set ${ZREPTAG}:dest-host=$desthost		$fsname
+	zfs set ${ZREPTAG}:savecount=$ZREP_SAVE_COUNT	$fsname
+}
+
+
+#
+# Old way used to use recv -x, but not all systems have that. so
+# preferred method is now to use recv -u instead.
+# To init from existing snapshot instead, see documention at bolthole.com
+# Note that remote fs must share same stem name as source. (for now?)
+#
+zrep_init(){
+	typeset srcfs="$1" desthost="$2" destfs="$3" snap check vol=0
+	typeset mountpoint vflags verbose
+	typeset token
+
+	if [[ "$ZREP_FORCE" != "-f" ]] ; then
+		zrep_ssh $desthost zfs list destfs >/dev/null &&
+			zrep_errquit "$desthost:$destfs already exists! Will not overwrite without -f"
+	fi
+
+	if [[ "$ZREP_VERBOSE" != "" ]] ; then
+		verbose=-v
+	fi
+
+	if [[ "$srcfs" == "" ]] ; then
+		zrep_errquit "zrep: no fs specified"
+	fi
+
+	#sanity checks
+	check="`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`"
+	if [[ "$check" != "-" ]] ; then
+		echo "$srcfs is at least partially configured by zrep"
+		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
+		if [[ "$check" != "" ]] ; then
+			zrep_errquit "${ZREPTAG}:master detected!!"
+		fi
+
+		if [[ "$ZREP_RESUME" == "" ]] ; then
+			zrep_errquit "To re-initialize, first use zrep clear $srcfs"
+		fi
+
+		# if it exists already, presume we need to resume an init.
+		# if we cant, then its an error.
+
+		
+		
+		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
+		if [[ "$token" == "-" ]] ; then token="" ; fi
+		if [[ "$token" == "" ]] ; then
+			zrep_errquit Partial init of $src detected but no resume token found. Suggest you zrep clear and start again
+		fi
+
+		echo "Partially complete init detected. Attempting to resume send"
+
+		if [[ "$BBCP" != "" ]] ; then
+			SENDCMD="zfs send -t $token ${ZREP_RESUME_FLAGS}"
+			$BBCP -N io "$SENDCMD" \
+			   "$desthost:zfs recv $destfs"
+
+		else
+			eval zfs send ${ZREP_RESUME_FLAGS} -t $token  ${Z_F_OUT} | 
+			   zrep_ssh $desthost "${Z_F_IN} zfs recv $destfs"
+		fi		
+		if [[ $? -ne 0 ]] ; then
+			zrep_errquit resume send of zrep init $srcfs failed
+		fi
+	fi
+
+
+	check="`$ZFSGETVAL type $srcfs`"
+	if [[ "$check" == "volume" ]] ; then
+		vol=1
+		if (( ! Z_HAS_REC_O )) ; then
+			echo WARNING: no proper recv -o detected
+			echo WARNING: extremely old versions of ZFS crash with volume init
+			echo Continuing in 5 seconds....
+			sleep 5
+			vflags="`$ZFSGETVAL volsize $srcfs`"
+			vflags="-V $vflags"
+
+
+		fi
+		# for details,see
+		#  https://groups.google.com/forum/#!topic/comp.unix.solaris/-5bcZFInozk
+		# subject:"solaris 11 crash when zfs send/receive of volume"
+	fi
+	
+
+	#get this for later
+	mountpoint=`$ZFSGETLVAL mountpoint $srcfs`
+
+	#  Make this section conditional, so that we keep shared codepath for completion
+	# of initial sync.
+	# This is actually  the "normal" snapshot and sync path.
+	# 
+	if [[ "$token" == "" ]] ; then
+	
+		if [[ "$ZREP_RESUME" != "" ]] ; then
+			recv_s=-s
+		fi
+
+		echo Setting zrep properties on $srcfs
+		setfsconfigs $srcfs $desthost $destfs
+
+		#setfsconfigs may do some "smarts" to adjust value, so get it again.
+		# yes only check for LOCAL this time. Paranoia....
+		destfs=`$ZFSGETLVAL ${ZREPTAG}:dest-fs $srcfs`
+
+		if (( Z_HAS_REC_O )) ; then
+			READONLYPROP="-o readonly=on"
+		else
+			READONLYPROP=""
+			echo Warning: zfs recv lacking -o readonly
+		fi
+		if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
+			echo Creating  destination filesystem as separate step
+			# normally would want to use -o readonly here.
+			# however, that breaks when -R is used.
+			# set it after transfer instead
+			zrep_ssh $desthost zfs create $ZREP_CREATE_FLAGS $vflags $destfs || zrep_errquit "Cannot create $desthost:$destfs"
+		fi
+
+		snap="${srcfs}@${ZREPTAG}_000000"
+		echo Creating snapshot $snap
+		zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
+
+		# Note that we may not want to use -p for normal zrep syncs
+		# We also should not use -F for normal recv. See workflow.txt
+		# Note: we may have to reset readonly=on, if we used -p on send...
+		#
+		echo Sending initial replication stream to $desthost:$destfs
+		if (( Z_HAS_REC_U )) ; then
+			# This is the nice, clean, modern codepath, to send
+			# zrep settings over automatically at first init.
+			# Note that we use "zfs send -p" to preserve properties.
+
+			if [[ "$BBCP" != "" ]] ; then
+			$BBCP -N io "zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap" \
+			    "$desthost:zfs recv -u  $READONLYPROP $recv_s -F $destfs"
+			else
+			eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} -p $snap ${Z_F_OUT}|
+				zrep_ssh $desthost "${Z_F_IN} zfs recv -u $READONLYPROP $recv_s -F $destfs"
+			fi
+
+		else
+			## arg.. Update your systems!!
+			# without -u, risky to use send -p if mountpoint set.
+			#  (So we cant avoid it potentially WRONGLY setting mountpoint)
+			# This means we have to manually set props lower down as well.
+			# (yeah okay I could check if $mountpoint set, but
+			#  there are too many code branches here already, so too bad!
+			#  Update your system! :p )
+
+			if [[ "$BBCP" != "" ]] ; then
+			$BBCP -N io "zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap" \
+			    "$desthost:zfs recv $READONLYPROP $recv_s -F $destfs"
+			else
+			eval zfs send ${ZREP_R} ${ZREP_SEND_FLAGS} $snap ${Z_F_OUT}|
+			  zrep_ssh $desthost "${Z_F_IN} zfs recv $READONLYPROP $recv_s -F $destfs"
+			fi
+		fi
+		if [[ $? -ne 0 ]] ; then
+			if [[ "$ZREP_RESUME" == "" ]] ; then
+				clearquit $srcfs "Error transferring $snap to $desthost:$destfs. Resetting"
+			else
+				zrep_errquit "Error transferring $snap to $desthost:$destfs. RESUME set. Not clearing $srcfs"
+			fi
+		fi
+
+	fi   #resume token set
+
+
+	# Successful initial sync! Woo! okay, record that fact and complete setting properties
+	# ... after stupid old-zfs-compat junk, that is
+	if (( ! Z_HAS_REC_U )) || [[ "$ZREP_CREATE_FLAGS" != "" ]] ; then
+		_debugprint Because your zfs does not have recv -u,
+		_debugprint   or maybe because ZREP_CREATE_FLAGS set,
+		_debugprint setting remote properties by hand
+		zrep_ssh $desthost zfs set readonly=on $destfs
+		if [[ $? -ne 0 ]] ; then
+			errquit Could not set readonly for $desthost:$destfs. However, snapshot has been synced. \
+			Manual intervention required if you do not wish to simply clear and start again.
+		fi
+
+		zrep_ssh $desthost zfs set ${ZREPTAG}:src-fs=$srcfs $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-fs=$destfs $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:dest-host=$desthost $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:savecount=$ZREP_SAVE_COUNT $destfs
+
+	fi
+	if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
+		echo setting readonly on $desthost:$destfs manually
+		zrep_ssh $desthost zfs set readonly=on $destfs
+	fi
+
+	# Extra, non-symmeric properties the user might want on the remote side.
+	if [[ "$ZREP_INIT_REMOTE_PROPERTIES" != "" ]] ; then
+		for prop in $ZREP_INIT_REMOTE_PROPERTIES ; do
+			zrep_ssh $desthost zfs set $prop $destfs
+		done
+	fi
+
+
+	# Success! So need to set success marker on remote side.
+	# Make sure to set format to match what zrep_sync() looks for!
+	if (( Z_HAS_SNAPPROPS )) ; then
+		typeset sentprop="${ZREPTAG}:sent=`zrep_gettimeinseconds`"
+		zfs set $sentprop ${snap}
+	else
+		# Arg stupidold stuff cant set props on a snapshot
+		# So we have to manually set these on both sides also,
+		# "Just in case"
+		zfs set ${ZREPTAG}:lastsent=${snap} $srcfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsent=${snap} $destfs
+	fi
+	if [[ "$mountpoint" != "" ]] ; then
+		echo "clearing mountpoint value for remote"
+		zrep_ssh $desthost zfs inherit mountpoint $destfs
+	fi
+
+	# make sure the above ' set 's (sent, lastsent)
+	# match what zrep_sync() does !!!
+
+
+	# Note: we have to set master property NOW, not before,
+	# because "recv -x zrep:master" Does Not Work properly
+	# Also, it avoids things like "zrep sync all" from attempting
+	# to sync it before initial sync has been done.
+	# We don't even have to zrep_lock_fs until this is set
+	#  Make sure value this matches zrep_sentsync
+	zfs set ${ZREPTAG}:master=yes	$srcfs
+
+	echo Initialization copy of $srcfs to $desthost:$destfs complete
+	if (( Z_HAS_REC_U )) ; then
+		echo Filesystem will not be mounted
+	fi
+
+}
+
+
+zrep_changeconfig(){
+	if [[ "$1" == "-f" ]] ; then
+		# skip safety checks
+		shift
+		setfsconfigs $@
+		return 
+	fi
+	typeset srcfs="$1" check
+	
+	if [[ "$srcfs" == "" ]] ; then
+		zrep_errquit "zrep: no fs specified"
+	fi
+
+	check=`getlastsnap $srcfs`
+	if [[ "$check" == "" ]] ; then
+		_errprint "No pre-existing zrep snapshots found on $srcfs"
+		_errprint $srcfs is not initialized for zrep. cannot change config.
+		zrep_errquit Use zrep init on $srcfs instead
+	fi
+
+	setfsconfigs $@
+	
+}
+
+
+
+##### File: zrep_sync
+
+# contains meat of the "sync" level operations, which deal with
+# data transfer.
+# basic snap routines, and init routines, are in zrep_snap
+
+
+
+## file-internal routine that gets used a lot in zrep_sync. but not always
+_gensentprop(){
+	typeset timeinsec=`zrep_gettimeinseconds`
+	echo "${ZREPTAG}:sent=$timeinsec"
+}
+
+
+# This is a RECOVERY ROUTINE ONLY.
+# I put lots of sanity checking in here, that doesnt make sense to keep
+# with a more general case internal routine.
+# This exists, because certain people say that for some odd reason on their systems, 
+# the zfs send completes, but zrep gets killed before zrep updates properties.
+# To help people save the time on resyncing hundreds of TB, 
+# give them a way to update the sent property.
+#
+# This only works with newstyle ZFS that allows property setting on snapshots
+# Needs to follow whatever is done in _sync(), after the zfs send
+#  (and therefore getlastsnapsent() as well)
+#
+# Usage:   zrep_sentsync [-L] fs@snap
+#
+# WARNING: If you have nested zrep filesystem below this one.. you just hosed yourself.
+#
+zrep_sentsync(){
+	typeset local=0
+	if [[ "$1" == "-L" ]] ; then
+		local=1;
+		shift
+	fi
+
+	typeset srcsnap="$1"
+	typeset srcfs=${srcsnap%@*}
+	typeset snapname=${srcsnap#*@}
+
+	if (( ! Z_HAS_SNAPPROPS )) ; then
+		zrep_errquit This sentsync operation only supported with modern ZFS implementations
+	fi
+
+	zfs list -t snapshot "$1" >/dev/null 2>&1
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Expected snapshot for $1. Cannot continue
+	fi
+	case "$1" in
+		*@${ZREPTAG}_[0-9a-f]*)
+		:
+		;;
+		*)
+		zrep_errquit $1 does not follow zrep naming standards. Cannot continue
+		;;
+	esac
+
+	typeset sentcheck=`$ZFSGETLVAL ${ZREPTAG}:sent $srcfs`
+	if [[ "$sentcheck" != "" ]] ; then
+		zrep_errquit ${ZREPTAG}:sent already present on $srcfs
+	fi
+
+
+	_clearlast $srcfs
+	typeset	senttimeprop="`_gensentprop`"
+
+	if ((local == 0)) ; then
+		typeset desthost destfs
+		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
+		zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
+	fi
+
+	zfs set $senttimeprop  ${srcsnap}
+	# This will be redundant for recovery, but crucial for when
+	# user is trying to convert existing snapshot to
+	# zrep snapshot.
+	# Make sure it matches  zrep_init
+	zfs set ${ZREPTAG}:master=yes	${srcfs}
+
+	
+}
+
+####################
+# synctosnap: called by zrep_sync, if a specific snapshot is specified.
+#
+# This LOCAL side, *and*  REMOTE side, match up with local zrep_created 
+# snapshot. ...
+# 
+# Note that it uses zrep_lock_fs
+#
+# WARNING: if we force other side to roll to snap.... 
+#  we should NOT BE SYNCING ANY more.
+# At the moment, it is up to the user to ensure that nothing is going on 
+# locally, and future zrep syncs wont just effectively roll forward again
+#  on the remote side.
+# zrep sync jobs  should probably be halted, until it is decided that
+# you want to sync again.
+#
+# In the future, I should support some kind of "pause" option, for 
+#   zrep sync all    to ignore a rolled back filesystem
+#
+#
+synctosnap(){
+	typeset srcsnap=$1 destfs=$2 desthost=$3
+	typeset newsentlist
+
+	typeset srcfs snapname destsnap
+	if [[ "$desthost" == "" ]] ; then
+		echo ERROR: synctosnap did not receive all required args
+		zrep_errquit "args=$@"
+	fi
+	srcfs=${srcsnap%@*}
+	snapname=${srcsnap#*@}
+	destsnap=${snapname}
+
+	# Have to enforce OUR syntax. otherwise, any future attempt to
+	# continue sync will fail.
+	#  ( getlastsnap() wont find it! )
+	#
+	case $snapname in
+		${ZREPTAG}_[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+		: ;;
+		*)
+			zrep_errquit $srcsnap is not zrep snapshot. Cannot roll with it.
+		;;
+	esac
+		
+		
+
+	echo Validating remote snap
+	zrep_ssh $desthost zfs list -t snapshot $destfs@$destsnap >/dev/null
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit  $destfs@$destsnap does not exist. Cannot roll to snap
+	fi
+	
+
+	echo "WARNING: We will be rolling back  $destfs, on $desthost"
+	echo -n "   to  $snapname, made at: "
+	$ZFSGETVAL creation $srcsnap
+	echo ""
+	echo "All newer snapshots on remote side will be destroyed"
+	echo "You should have paused ongoing sync jobs for $destfs before continuing"
+	echo "Continuing in 20 seconds...."
+	sleep 10
+	echo "Continuing in 10 seconds...."
+	sleep 10
+
+	zrep_lock_fs $srcfs || zrep_errquit "Cannot lock $srcfs"
+	zrep_ssh $desthost zfs rollback -Rr $destfs@$destsnap || zrep_errquit roll failed
+
+	echo $desthost:$destfs rolled back successfully to $destsnap
+	echo Now cleaning up local snapshots
+
+	# need to undo whatever zrep_sync does 
+	newsentlist=`getallsnaps $srcfs|sed "1,/@$snapname/d"`
+	for snap in $newsentlist ; do
+		zfs inherit ${ZREPTAG}:sent $snap
+	done
+
+	zrep_unlock_fs $srcfs
+	
+}
+
+#
+# called by _sync
+# Check if there have been changes since specified snap
+# If no, then return 0 == true [no changes ]
+#
+_sync_nochanges(){
+	typeset changecheck tmpfile="$ZREP_RUNDIR/zrep.$$.c"
+
+	rm -f $tmpfile
+	zfs diff -H $1  >$tmpfile
+	if [[ $? -ne 0 ]] ; then
+		_errprint _sync_nochanges: zfs diff command unrecognized
+		rm -f $tmpfile
+		return 1
+	fi
+	if test -s $tmpfile ; then
+		rm -f $tmpfile
+		return 1
+	fi
+
+	_debugprint sync_nochanges did not find any changes
+	rm -f $tmpfile
+	return 0
+}
+
+# Usage: _snapandsync  fs desthost destfs
+# internal routine called by zrep_sync and zrep_failover,
+# to do an incremental send.
+# You must hold filesystem lock before calling this
+# WE DO NOT DO ANY SAFETY OR LOCK CHECKS HERE.
+# Caller is expected to have done them.
+#
+# Wil create a new snap on srcfs, and sync it over to given destination
+# Sets our 'synced' marker on it as well.
+#
+_snapandsync(){
+	typeset srcfs=$1 desthost=$2 destfs=$3
+
+	typeset sentsnap newsnap snapname
+
+
+	# Find incremental send starting point
+	# Do this BEFORE creating new snap, because we should make new snap
+	# if we cant do incremental anyway
+	sentsnap=`getlastsnapsent $srcfs`
+	if [[ "$sentsnap" == "" ]] ; then
+		echo zrep_sync could not find sent snap for $srcfs. 
+		zrep_errquit You must initialize $srcfs for zrep
+	fi
+
+	if [[ "$ZREP_CHANGEDONLY" != "" ]] ; then
+		if _sync_nochanges $sentsnap ; then
+		_debugprint No changes found in $srcfs. Updating timestamp only
+
+		if (( Z_HAS_SNAPPROPS )) ; then
+			typeset senttimeprop="`_gensentprop`"
+			zfs set $senttimeprop  ${sentsnap}
+		else
+			#note that this is only for old-ZFS compatibility.
+			# We dont really want to use this style if possible!
+			typeset timeinsec=`zrep_gettimeinseconds`
+			zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
+		fi
+		return 0
+		fi
+	fi
+
+	newsnap=`makesnap $srcfs`
+	# workaround wierd bash newline problem
+	newsnap=$(echo $newsnap)
+	if [[ "$newsnap" == "" ]] ; then
+		zrep_errquit zrep_sync could not create new snapshot for $srcfs
+	fi
+
+	_sync $srcfs $desthost $destfs $sentsnap $newsnap
+
+}
+
+
+
+# called by _snapandsync, and also zrep_synconly
+# Usage: _sync sourcefs destinationhost destinationfs (lastsent (newsnap))
+# This is the level that calls zfs directly.
+# see also _refreshpull, since it also calls directly.
+_sync(){
+	typeset force verbose
+	typeset token="" recv_s=""
+	
+	if [[ "$ZREP_FORCE" == "-f" ]] ; then
+		force=-F
+	fi
+	if [[ "$ZREP_VERBOSE" != "" ]] ; then
+		verbose=-v
+	fi
+	if [[ "$ZREP_RESUME" != "" ]] ; then
+		recv_s=-s
+	fi
+
+	typeset srcfs=$1 desthost=$2 destfs=$3
+	typeset lastsent=$4 newsnap=$5
+	typeset snapname
+
+	if [[ "$lastsent" == "" ]] ; then
+		lastsent=`getlastsnapsent $srcfs`
+		if [[ "$lastsent" == "" ]] ; then
+			echo zrep_sync could not find sent snap for $srcfs. 
+			zrep_errquit You must initialize $srcfs for zrep
+		fi
+	fi
+
+	if [[ "$newsnap" == "" ]] ; then
+		newsnap=`getlastsnap $srcfs`
+		if [[ "$newsnap" == "" ]] ; then
+			echo zrep_sync could not find sent snap for $srcfs. 
+			zrep_errquit You must initialize $srcfs for zrep
+		fi
+	fi
+
+	if [[ "$newsnap" == "$lastsent" ]] ; then
+		echo $newsnap already sent
+		return 0
+	fi
+
+	typeset remotemaster
+	remotemaster=`zrep_ssh $desthost $ZFSGETLVAL ${ZREPTAG}:master $destfs`
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit "$desthost is not reachable via ssh? Cannot sync"
+	fi
+	if [[ "$remotemaster" == "yes" ]] ; then
+		zrep_errquit "Other side ($desthost:$destfs) is also master. Split brain detected"
+	fi
+
+	snapname=${newsnap#*@}
+	# do this manually, not using gensentprop because we want consistant timestamp
+	typeset timeinsec=`zrep_gettimeinseconds`
+	typeset senttimeprop="${ZREPTAG}:sent=$timeinsec"
+
+	echo sending $newsnap to $desthost:$destfs
+
+	if [[ "$ZREP_RESUME" != "" ]] ; then
+		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
+		if [[ "$token" == "-" ]] ; then token="" ; fi
+	fi
+
+	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
+	# So we dont do that usually
+
+	# other than zrep_init, this should be the ONLY place we do a send
+	#   Sigh. but now we also do in _refreshpull
+	if [[ "$BBCP" != "" ]] ; then
+
+		if [[ "$token" != "" ]] ; then
+			SENDCMD="zfs send -t $token ${ZREP_RESUME_FLAGS}"
+		else 
+			SENDCMD="zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap"
+
+		fi
+		$BBCP -N io "$SENDCMD" \
+		   "$desthost:zfs recv $recv_s $force $destfs"
+	else
+		if [[ "$token" != "" ]] ; then
+			eval zfs send ${ZREP_RESUME_FLAGS} -t $token  ${Z_F_OUT} | 
+			   zrep_ssh $desthost "${Z_F_IN} zfs recv $recv_s $force $destfs"
+		else
+			eval zfs send $verbose ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $newsnap ${Z_F_OUT} | 
+			   zrep_ssh $desthost "${Z_F_IN} zfs recv $recv_s $force $destfs"
+		fi
+	fi
+
+	# I rename this to _unsent rather than just delete, in case people are using zrep
+	# for the DUAL use, of replication,
+	# plus convenient user-based "oops" recovery from the automatic .zfs/snapshots directory
+	# But if resume support enabled, should auto-retry next time sync called
+	if [[ $? -ne 0 ]] ; then
+		if [[ "$ZREP_RESUME" == "" ]] ; then
+			if [[ "$ZREP_RENAME_UNSENT" == "yes" ]] ; then
+				zfs rename ${Z_SNAP_R} ${newsnap} ${newsnap}_unsent
+				zrep_errquit Problem doing sync for $newsnap. Renamed to ${newsnap}_unsent
+			else
+				zfs destroy ${Z_SNAP_R} ${newsnap}
+			fi
+		fi
+		
+		zrep_errquit Problem doing sync for $newsnap.
+	fi
+
+
+	##################################################
+	##### Okay. data sync completed. Now register that fact with ZFS properties.
+	##### If you modify below here, you also need to update zrep_sentsync
+
+	#Even if we are "old mode", other side may not be.
+	# So try newer way first.
+	zrep_ssh $desthost zfs set $senttimeprop $destfs@$snapname
+	if [[ $? -ne 0 ]] ; then
+		echo WARNING: setting ${ZREPTAG}:sent failed on $desthost:$destfs@$snapname
+		echo Using fallback methods. You should go patch $destfs to have newer ZFS version
+		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsent=${newsnap} $destfs
+		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $destfs
+	fi
+
+	if (( Z_HAS_SNAPPROPS )) ; then
+		zfs set $senttimeprop  ${newsnap}
+	else
+		#note that this is only for old-ZFS compatibility.
+		# We dont really want to use this style if possible!
+		zfs set ${ZREPTAG}:lastsent=${newsnap} $srcfs
+		zfs set ${ZREPTAG}:lastsenttime=${timeinsec} $srcfs
+	fi
+}
+
+
+#User entrypoint, for synconly, which is the pair of snaponly
+#Keep it paired with zrep_sync
+zrep_synconly(){
+	#	annoyingly..need to make this almost identical to our current full
+	#	zrep_sync. but just skipping first steps :(
+	#	we can skip retries, though.
+	typeset srcfs desthost destfs
+
+	if [[ "$1" == "all" ]] ; then
+		set -- `zrep_list_master`
+		if [[ "$1" == "" ]] ; then
+			exit
+		fi
+	fi
+
+	[[ "$1" == "" ]] && zrep_errquit No fileystem specified for synconly
+
+	while [[ "$1" != "" ]] ; do
+		srcfs=$1
+
+		check=`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`
+		if [[ "$check" != "yes" ]] ; then
+			zrep_errquit $srcfs not master. Cannot sync
+		fi
+
+		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
+		if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+		then
+			zrep_errquit Problem getting zrep properties for fs $srcfs
+		fi
+
+		zrep_lock_fs $srcfs
+		if [[ $? -ne 0 ]] ; then
+			zrep_errquit Failed to acquire zrep lock for $srcfs
+		fi
+
+		_sync $srcfs $desthost $destfs || zrep_errquit sync failed for $srcfs
+
+		_expire $srcfs	#dont care so much if this fails
+
+		zrep_unlock_fs $srcfs
+
+		shift
+	done
+}
+
+
+#zrep_sync
+# User entrypoint
+# Make a new snapshot and copy it over.
+# Usage: zrep_sync [-q quiettime] (all|fs1 .. fsX)
+# See workflow.txt 
+# SPECIAL CASE: Will call synctosnap if a snapshot is given instead of fsname
+# Normally, will bail out if another instance of zrep holds lock.
+# -q option says to check last update time of locked filesystems.
+#   If sync more recent than given quiettime, then quietly ignore
+#   
+zrep_sync(){
+	# If you make changes in here, check if needed in zrep_synconly!!
+
+	typeset srcfs destfs desthost sentsnap newsnap
+	typeset quiettime=0
+
+	if [[ "$1" == "-c" ]] ; then
+		export ZREP_CHANGEDONLY="yes"
+		shift
+	fi
+
+	if [[ "$1" == "-q" ]] ; then
+		quiettime="$2"
+		shift
+		shift
+		if (( quiettime < 30 )) ; then
+			zrep_errquit "-q must use value greater than 30"
+		fi
+	fi
+
+	if [[ "$1" == "all" ]] ; then
+		set -- `zrep_list_master`
+		if [[ "$1" == "" ]] ; then
+			# Stay quiet, so we dont spew if in cron
+			#echo No zrep mastered filesystems found
+			exit
+		fi
+	fi
+
+	[[ "$1" == "" ]] && zrep_errquit No fileystem specified for sync
+
+	# Special Case. User can force sync from specific snapshot
+	case $1 in
+		*@*)
+			synctosnap $srcfs $destfs $desthost
+			return
+			;;
+	esac
+
+	while [[ "$1" != "" ]] ; do
+		srcfs="$1" 
+
+		check=`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`
+		if [[ "$check" != "yes" ]] ; then
+			zrep_errquit $srcfs not master. Cannot sync
+		fi
+
+		desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+		destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
+		if [[ $? -ne 0 ]] || [[ "$desthost" == "-" ]] || [[ "$destfs" == "-" ]];
+		then
+			zrep_errquit Problem getting zrep properties for fs $srcfs
+		fi
+
+		zrep_lock_fs $srcfs
+
+		if [[ $? -ne 0 ]] ; then
+		# retry for lock for a while, if (quiettime>0 )
+
+			if ((quiettime==0)); then
+				zrep_errquit Cannot lock $srcfs. Cannot continue
+			fi
+			typeset currtime=`zrep_gettimeinseconds`  snaptime elapsed
+
+			snaptime=`getlastsynctime $srcfs`
+			if (( snaptime == 0 )) ; then
+				zrep_errquit quiet mode set, but no last snap for $srcfs
+			fi
+	
+			elapsed=$((currtime - snaptime))
+			if ((elapsed > quiettime)) ; then
+				_debugprint $elapsed seconds have elapsed since last sync of $srcfs
+				zrep_errquit quiet time limit of $quiettime seconds exceeded for busy fs $srcfs
+			else
+				echo Quiet mode: skipping busy fs $srcfs at `date`
+				return 
+			fi
+		fi
+
+		_snapandsync $srcfs $desthost $destfs
+
+
+		# Make this message match what zrep_expire uses..
+		echo Expiring zrep snaps on $srcfs
+		_expire $srcfs
+
+		zrep_unlock_fs $srcfs
+
+		shift
+	done
+
+}
+
+
+
+# Usage: zrep_refresh fsname
+#
+# zrep_refresh is a "pull" version of "zrep_sync"
+# The concept is a bit of a hack.
+# It primarily exists so people can run a secure backup server, that
+# has ssh access to all hosts, but not vice versa
+#
+# Implementation is a bit sketchy. 
+# For initial, non-optimal run, perhaps take advantage of
+#    ssh host zrep synconly
+# to avoid too much duplication of things?
+# but will still need to set all the perms n things. Nastyyy..
+# The MAIN nastiness, is that all our locks are on the "master" side.
+# Which depends on the PID still being there!!
+# But if we start now running things on the "slave" side.. 
+# There is potential for problems
+# Examine critical points and reasons for lock:
+#   1. while doing analysis of which snap to send
+#   2. to avoid paralel "zfs send"s running.
+#   3. for update of timestamp
+#
+#   We can still wrap #1 and #2 in a single lock call. 
+#    (and still on the src side!)
+#   The ugly comes when updating zrep:sent. Dont want to update wrong snap!
+#   So long as we do some kind of check to see that we're not going
+#   backwards when we get lock a second time ... we should be relatively okay.
+#   However.. for simplicity... going to just cross fingers and wrap
+#   all three in single remote lock call, through _refreshpull
+#
+zrep_refresh(){
+	typeset srcfs destfs desthost newsnap newseq master
+	typeset force
+
+	if [[ "$ZREP_FORCE" == "-f" ]] ; then
+		force=-F
+	fi
+
+	if [[ "$1" == "-r" ]] ; then
+		export ZREP_RESUME=1
+		shift
+	fi
+
+	# for now, just handle ONE fs, not multiple fs list
+
+	destfs="$1"
+	if [[ "$1" == "" ]] ; then
+		_errprint Error: no filesystems specified for refresh
+		return 1
+	fi
+
+	master=`$ZFSGETLVAL ${ZREPTAG}:master $destfs`
+	if [[ "$master" == "yes" ]] ; then
+		zrep_errquit Sorry, you cant run refresh on a master mode fs $destfs
+	fi
+
+	srchost=`$ZFSGETVAL ${ZREPTAG}:src-host $destfs`
+	srcfs=`$ZFSGETVAL ${ZREPTAG}:src-fs $destfs`
+
+	zrep_lock_fs $destfs
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Cannot lock $destfs. Cannot continue
+	fi
+
+	_debugprint refresh step 1: Going to $srchost to snapshot $destfs
+	newsnap=`zrep_ssh $srchost $ZREP_PATH ${ZREP_R} snaponly $srcfs`
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit snap of src $srcfs on $srchost failed
+	fi
+	# yes, MORE paranoia..
+	case $newsnap in
+		*@${ZREPTAG}_*)
+			newseq=${newsnap#*@}
+			;;
+		*)
+			zrep_errquit Unrecognized output from src snap. Cannot continue
+			;;					
+	esac
+	
+	typeset	senttimeprop="`_gensentprop`"
+
+	_debugprint refresh step 2: Pulling $newsnap
+	if [[ "$ZREP_RESUME" != "" ]] ; then
+		token=`$ZFSGETVAL receive_resume_token $destfs`
+		if [[ "$token" == "-" ]] ; then token="" ; fi
+	fi
+
+	if [[ "$BBCP" != "" ]] ; then
+		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
+		  "zfs recv $force $destfs"
+	else
+		zrep_ssh $srchost "$ZREP_PATH ${ZREP_R} _refreshpull $newsnap $token ${Z_F_OUT}" |
+		  eval ${Z_F_IN} zfs recv $force $destfs
+	fi
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Unforseen error pulling snapshot $newsnap from $srchost
+	fi
+
+	zfs set $senttimeprop $destfs@$newseq
+	if [[ $? -ne 0 ]] ; then
+		_errprint WARNING: expected local copy $destfs@newseq does not exist
+	fi
+
+
+	zrep_ssh $srchost $ZREP_PATH _refreshcomplete  $newsnap $senttimeprop
+
+
+	_debugprint Running local expires on $destfs
+	_expire $destfs
+
+	_debugprint Running remote expires on $srcfs
+	sleep 1  # avoid race condition on samehost situation
+	zrep_ssh $srchost "$ZREP_PATH expire -L $srcfs"
+
+	zrep_unlock_fs $destfs
+
+}
+
+# Implementation for hidden command-line option, "zrep _refreshpull"
+# This is called remotely by zrep refresh
+#    ( aka  zrep_refresh  )
+# We dont just call "ssh zfs send", because we want to use zrep locking
+#
+# This routine is definitely not supposed to be user visible
+#   .. eh... maybe someday. but initial design is "private"
+#
+# Note that this is only called on a per-filesystem name
+#
+# Syntax:  _refreshpull fs/name [optional resume token]
+#
+_refreshpull(){
+	typeset fs snapname lastsent latest verbose
+	typeset token=""
+
+	if [[ "$2" != "" ]] ; then
+		token="$2"
+	fi
+
+	if [[ "$ZREP_VERBOSE" != "" ]] ; then
+		verbose=-v
+	fi
+
+	snapname="$1"
+	fs=${snapname%@*}
+
+	# Keep in mind that stdin/out is busy so have to use stderr.
+	# Cant use regular debugprint
+	if [[ "$DEBUG" != "" ]] ; then
+	     _errprint _refreshpull: snapname=$snapname, fs=$fs
+	fi
+
+	zrep_lock_fs $fs
+	if [[ $? -ne 0  ]] ; then
+		zrep_errquit Could not lock $fs
+	fi
+
+	#We should now;
+	# 1. compare to latest snap. quit if not latest
+	# 2. get timestamp
+	# 3. trigger a zfs send
+	# 4.  set timestamp if no errors.
+	#    I think it is reasonable to presume that if the receive failed,
+	#    we will see an error by the pipe blowing up.
+	#
+
+	lastsent=`getlastsnapsent $fs`
+	if [[ "$lastsent" == "" ]] ; then
+		zrep_errquit Canthappen: _refreshpull cant findlastsent snap
+	fi
+	latest=`getlastsnap $fs`
+
+	if [[ "$latest" != "$snapname" ]] ; then
+		zrep_errquit Sync error: $snapname is not latest snap for $fs
+	fi
+
+
+	if (( Z_HAS_SNAPPROPS ==0)) ; then
+		zrep_errquit Error: we currently only support modern ZFS that allows setting props on snaps
+	fi
+
+	if [[ "$token" != "" ]] ; then
+		zfs send ${ZREP_RESUME_FLAGS} -t $token 
+	else
+		zfs send $verbose $token ${ZREP_R} ${ZREP_SEND_FLAGS} ${ZREP_INC_FLAG} $lastsent $latest
+	fi
+
+	if [[ $? -ne 0 ]] ; then
+		zrep_errquit Some kind of error during sending. Bailing out of _refreshpull
+	fi
+
+
+	zrep_unlock_fs $fs
+}
+
+
+# INTERNAL-ONLY HOOK for "zrep refresh"
+#
+# This used to be in _refreshpull. However, that led to a race condition where a
+# "zfs send" had been completed, and "last sent" had been updated prematurely.
+# if the zfs receive didnt complete, then things were messed up.
+# Usage:
+#  _refreshcomplete  fs@snapshot propertysetting=value
+#
+_refreshcomplete(){
+	zfs set ${2} ${1}
+}
+
+# usage:
+#  snap_olderthan  snapname minutes
+# returns true (0) if snap older than given number of minutes,
+# based on 'creation' property.
+#  (technically this should work on regular fs as well)
+# 
+# **NOTE**
+# MINUTES, not seconds, because property format looks like this;
+#  $ zfs get -H  creation scratch
+#  scratch creation        Sun Dec  1 21:55 2019   -
+#
+snap_olderthan(){
+	typeset cstamp=`$ZFSGETVAL creation $1`
+	typeset ageinseconds=`printf "%(%s)T" "$cstamp"`
+
+	typeset secondmark=`printf "%(%s)T" "$2 minutes ago"`
+
+	if (( $secondmark <  1 )) ; then
+	 	zrep_errquit  ERROR: snap_olderthan passed invalid minute limit: $2
+	fi
+
+	if (( ageinseconds < secondmark )) ; then
+		return 0
+	fi
+
+
+	return 1
+}
+
+# _expire: 
+#   get rid of "old" snapshots for a specifically named filesystem
+#
+# Note0: you must hold local(master) fs lock first
+#
+# Note1: expire BOTH SIDES, if we are master
+# Keep in mind that sometimes master and dest are on same system
+# 
+# Note2: Be sure to NEVER delete most recent sent snapshot!!
+
+# INTERNAL routine. For external-facing routine, see zrep_expire
+_expire(){
+
+	if [[ "$ZREP_SKIP_EXPIRE" != "" ]] ; then
+		_debugprint _expire doing nothing since ZREP_SKIP_EXPIRE set
+		return
+	fi
+
+	typeset savecount currcount lastsent remotehost remotefs sanity
+	typeset tmpfile=$ZREP_RUNDIR/zrep_expire.$$
+	typeset local=0 master
+
+	if [[ "$1" == "-L" ]] ; then
+		local=1;
+		shift
+	fi
+
+	master=`$ZFSGETLVAL ${ZREPTAG}:master $1`
+
+	zrep_has_fs_lock $1 || zrep_errquit zrep_expire Internal Err caller did not hold fs lock on $1
+
+	# Allow propagated values as well as local, for savecount
+	savecount=`$ZFSGETVAL ${ZREPTAG}:savecount $1`
+	# do not use (()) in case value unset
+	if [[ $savecount < 1 ]] ; then
+		zrep_errquit ${ZREPTAG}:savecount on $1 set to improper value $savecount
+	fi
+
+	rm -f $tmpfile
+	if [[ "$master" == "yes" ]] ; then
+		lastsent=`getlastsnapsent $1`
+		if [[ "$lastsent" == "" ]] ; then
+			zrep_errquit corrupted zrep data: no last sent detected. Stopping expire
+		fi
+
+		# Note that getallsnaps does an explicit sort already.
+		# We want to not expire lastsent, OR any later unsent ones!
+		getallsnaps $1 | awk  '$1 == "'$lastsent'"{exit} {print}'  >$tmpfile
+		savecount=$((savecount-1))
+	else
+		getallsnaps $1 >$tmpfile
+	fi
+	currcount=`wc -l < $tmpfile`
+
+	if ((currcount > savecount )) ; then
+		currcount=$((currcount - savecount))
+
+		head -$currcount $tmpfile >$tmpfile.2
+		mv $tmpfile.2 $tmpfile
+		for snap in `cat $tmpfile` ; do
+			_debugprint expiring $snap
+			# Paranoia is good.
+			case $snap in
+			     *@*)
+			    zfs destroy -r $snap
+			    ;;
+			    *)
+			    zrep_errquit "Expire was about to destroy NON-snapshot $snap"
+			    ;;
+			esac
+		done
+	fi
+	rm $tmpfile
+	
+
+	if [[ "$master" != "yes" ]] || ((local ==1)) ; then
+		#This fs is dest fs. We are done.
+		return
+		#otherwise, go expire on remote side as well
+	fi
+
+	remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $1`
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $1`
+	echo Also running expire on $remotehost:$remotefs now...
+	sanity=`zrep_ssh $remotehost $ZFSGETLVAL ${ZREPTAG}:master $remotefs`
+
+	# Normally, dont quit on error. But this is super-bad.
+	if [[ "$sanity" == "yes" ]] ; then
+		_errprint "ERROR: Remote side $remotehost also marked as master."
+		zrep_errquit "ERROR: Split brain scenario detected"
+	fi
+
+	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||echo REMOTE expire failed
+}
+
+
+# top-level user-facing routine.
+# expire old snaps for some or all zrep filesystems.
+# Different ways of calling:
+#   zrep expire all	Run expire on all zrep fs
+#   zrep expire		Run expire on zrep fs we are master for, plus remote
+#   zrep expire	-L	Run expire on zrep fs we are master for. SKIP remote
+#   zrep expire	 fs ..	Run expire only on fs, plus remote if it is a master
+#   zrep expire	-L fs 	Run expire only on fs. Skip remote
+#
+# If no arg given, expire only filesystems we are master for
+# If "all" given, expire literally all.
+#
+zrep_expire()
+{
+	if [[ "$ZREP_SKIP_EXPIRE" != "" ]] ; then
+		zrep_errquit 'You explicitly called zrep expire.. and also have ZREP_SKIP_EXPIRE set?? How about no.'
+	fi
+
+	typeset local
+	if [[ "$1" == "-L" ]] ; then
+		local="-L"
+		shift
+	fi
+
+	if [[ "$1" == "all" ]] ; then
+		set -- `zrep_list`
+	elif [[ "$1" == "" ]] ; then
+		set -- `zrep_list_master`
+	fi
+
+	# Note: we should continue if we hit problems with an individual
+	# filesystem. Otherwise we risk letting server selfdestruct fill
+	# over one troublesome filesystem
+	#
+	while [[ "$1" != "" ]] ; do
+		zrep_lock_fs $1
+		echo Expiring zrep snaps on $1
+		 _expire $local $1 || echo WARNING: expire failed for $1
+		zrep_unlock_fs $1
+		shift
+	done
+	
+}
+#### File: zrep_failover
+
+
+
+# run this on 'master' side, to make other side master
+# Usage: zrep_failover fs[@snap]  [remotehost]
+#
+zrep_failover(){
+	typeset local=0 fs snap="" remotehost remotefs check
+
+	if [[ "$1" == "-L" ]] ; then
+		local=1
+		shift
+	fi
+
+	if [[ "$1" == "" ]] ; then
+		usage
+		exit 1
+	fi
+
+	zfs list $1 >/dev/null || zrep_errquit invalid filesystem $1
+	check=`$ZFSGETLVAL ${ZREPTAG}:master $1`
+	if [[ "$check" != "yes" ]] ; then
+		zrep_errquit $1 not master. Cannot fail over
+	fi
+
+	fs="$1"
+	
+	case $fs in
+		*@*)
+			snap=$fs
+			fs=${srcsnap%@*}
+		;;
+	esac
+
+	zrep_lock_fs $fs ||zrep_errquit could not lock $fs
+
+	if [[ "$2" != "" ]] ; then
+		remotehost="$2"
+	else 
+		remotehost=`$ZFSGETVAL ${ZREPTAG}:dest-host $fs`
+	fi
+
+
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $fs`
+
+	echo Setting readonly on local $fs, then syncing
+	zfs set readonly=on $fs
+
+	if ((local ==1)) ; then
+		echo Failover for $1 in LOCAL mode
+		if [[ "$snap" == "" ]] ; then
+			snap=`getlastsnapsent $1`
+			zfs list $1 >/dev/null ||
+				zrep_errquit No last synced snap found for $1. Cannot fail over
+			echo Rolling back to last sync $snap
+		else
+			echo Rolling back to specified snap $snap
+		fi
+		zfs rollback -Rr $snap ||zrep_errquit Rollback to $snap failed
+
+	else
+
+		## Need to sync both sides before mode switch!
+		## If named snap, roll back.
+		## otherwise, "roll forward" by doing one last sync
+
+		if [[ "$snap" != "" ]] ; then
+			typeset snapname
+			snapname=${snap#*@}
+
+			echo Rolling back to local $snap
+			zfs rollback -Rr $snap || zrep_errquit Rollback to $snap failed
+			echo Rolling back $remotehost to $remotefs@$snapname
+			zrep_ssh $remotehost zfs rollback $remotefs@$snapname ||
+				zrep_errquit remote rollback failed
+
+		else
+			# makes new snapshot, and syncs 
+			_snapandsync $fs $remotehost $remotefs || zrep_errquit final sync failed. failover failed.
+		fi
+
+
+	fi
+
+	echo Reversing master properties for $Z_LOCAL_HOST:$fs
+
+	zfs set ${ZREPTAG}:dest-fs=$fs $fs	
+	zfs set ${ZREPTAG}:dest-host=$Z_LOCAL_HOST $fs
+	zfs set ${ZREPTAG}:src-fs=$remotefs $fs	
+	zfs set ${ZREPTAG}:src-host=$remotehost $fs
+
+	zfs inherit ${ZREPTAG}:master $fs
+	
+	zrep_unlock_fs $fs
+
+	if (( local ==0)) ;then
+		echo Setting master on $remotehost:$remotefs
+		zrep_ssh $remotehost $ZREP_PATH takeover -L $remotefs
+	fi
+	
+}
+
+# run this on 'dest' side, to promote it to master
+# Usage: zrep_takeover fs[@snap]  [remotehost]
+#
+zrep_takeover(){
+	typeset fs snap remotehost remotefs check local=0
+
+	if [[ "$1" == "-L" ]] ; then
+		local=1
+		shift
+	fi
+	
+	if [[ "$1" == "" ]] ; then
+		usage
+		exit 1
+	fi
+
+	fs="$1"
+
+	zfs list $fs >/dev/null || zrep_errquit invalid filesystem $fs
+
+	check=`$ZFSGETLVAL ${ZREPTAG}:master $fs`
+	if [[ "$check" = "yes" ]] ; then
+		_errprint WARNING: $fs is already master on this host. 
+		_errprint Presuming split-brain recovery mode ...
+		sleep 5
+
+	fi
+
+
+	if [[ "$2" != "" ]] ; then
+		remotehost="$2"
+	else 
+		remotehost=`$ZFSGETVAL ${ZREPTAG}:src-host $fs`
+	fi
+	remotefs=`$ZFSGETVAL ${ZREPTAG}:src-fs $fs`
+
+
+	if (( local == 0 )) ; then
+
+		echo Starting failover from remote side $remotehost
+		zrep_ssh $remotehost $ZREP_PATH failover $remotefs
+		# This will ssh back into us to set src host property, 
+		# and the other stuff, so we dont have to do that now.
+		exit $?
+	fi
+
+	# If here, we must be in local mode.
+	# So... just set properties!
+	# (and roll back, if desired)
+
+	case $fs in
+		*@*)
+			snap=$fs
+			fs=${srcsnap%@*}
+		;;
+	esac
+
+
+
+	zrep_lock_fs $fs
+	zfs inherit readonly $fs
+
+	if [[ "$snap" != "" ]] ; then
+		echo "WARNING: Before takeover, we will be rolling $fs"
+		echo -n "   to  $snapname, made at: "
+		$ZFSGETVAL creation $snap
+		echo ""
+		echo "All newer snapshots will be destroyed"
+		echo Continuing in 10 seconds...
+		sleep 10
+
+		zfs rollback -Rr $snap || zrep_errquit Rollback to $snap failed
+	fi
+
+	echo Setting master properties for $Z_LOCAL_HOST:$fs
+
+	zfs set ${ZREPTAG}:src-fs=$fs $fs	
+	zfs set ${ZREPTAG}:src-host=$Z_LOCAL_HOST $fs
+	zfs set ${ZREPTAG}:dest-fs=$remotefs $fs	
+	zfs set ${ZREPTAG}:dest-host=$remotehost $fs
+
+	zfs set ${ZREPTAG}:master=yes $fs
+
+	# Since we default to creating replicas unmounted... mount it now
+	if [[ "`$ZFSGETVAL type $fs`" == "filesystem" ]] ; then
+		if [[ "`$ZFSGETVAL mounted $fs`" == "no" ]] ; then
+				echo eMounting $Z_LOCAL_HOST:$fs
+				zfs mount $fs
+		fi
+	fi
+	
+	zrep_unlock_fs $fs
+	
+
+}
+
+######## zrep_top continues here
+
+usage(){
+	echo zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
+	echo in an ongoing basis.
+	echo 
+	echo "  Philip Brown, 2012-2019"
+	echo 
+	echo Simple usage summary:
+	echo 'zrep (init|-i) [-f] [-v] ZFS/fs remotehost remoteZFSpool/fs'
+	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
+	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
+	echo 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
+	echo 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
+	echo 'zrep failover [-L] ZFS/fs'
+	echo 'zrep takeover [-L] ZFS/fs'
+	echo 
+	echo "Status and side operations"
+	echo 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
+	echo 'zrep (list|-l) [-Lv]  [fs/names]'
+	echo 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
+	echo 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
+	echo 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
+	echo 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
+	echo 'zrep version'
+	echo 'zrep clear [-f] ZFS/fs  -- REMOVE ZREP CONFIG AND SNAPS FROM FILESYSTEM'
+	echo 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
+	echo 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
+	echo
+	echo '   -q option to sync says to Quietly ignore locked filesystems'
+	echo '    that have synced more recently than the given amount of seconds'
+	echo
+	echo 'Paired commands for high-transaction systems:'
+	echo '   zrep snaponly (ZFS/fs ... |all)'
+	echo '   zrep synconly (ZFS/fs ...|all)'
+	echo 'The above two commands split the simple sync subcommand, into two'
+	echo 'separate steps, so that a database, etc. may resume while the sync'
+	echo 'completes in the background'
+	echo ''
+	echo 'zrep defaults to using ssh. However, if remotehost is set to localhost,'
+	echo 'zrep will use a simple pipe instead.'
+	echo ''
+	echo ' More detailed examples can be found at:'
+	echo http://www.bolthole.com/solaris/zrep/zrep.documentation.html
+	echo ''
+	echo 'See the above documentation for details on using the -t flag to use zrep tags'
+}
+
+#
+# Special global flags that must always be processed FIRST, before normal command args.
+#
+while [[ "$1" == -[tD] ]] ; do
+	case "$1" in
+	    -D)
+		DEBUG=1
+		shift
+		;;
+	    -t)
+		if [ "$2" == "" ] ; then
+		usage
+		fi
+		#deliberately dont quote this to avoid stupidity or malice by user
+		ZREPTAG=$2
+		shift
+		shift
+		;;
+	esac
+done	
+
+
+if [[ "$ZREPTAG" != "zrep" ]] ; then
+	# If custom zrep tag, then probably multiple layers of snapshots.
+	# In this case, DO NOT send all intermediate snapshots for replication
+	ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-i"}
+
+	if [ "$ZREPTAG" != "" ] ; then
+	    ZREP_PATH="$ZREP_PATH -t $ZREPTAG"
+	fi
+fi
+# ensure it is set to SOMETHING by default. Default is to send all
+ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
+
+
+
+
+case "$1" in
+	"")
+		usage
+		;;
+	changeconfig|-C)
+		shift
+		zrep_changeconfig "$@"
+		;;
+	clear)
+		shift
+		# only actually allows ONE fs
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
+		zrep_clear "$@"
+		;;
+	expire|-e)
+		shift
+		zrep_expire "$@"
+		;;
+	init|-i)
+		shift
+		while  [ "$1" != "" ] ; do
+			case $1 in
+				"-f")
+				shift
+				ZREP_FORCE=-f
+				;;
+				"-v")
+				shift
+				ZREP_VERBOSE=yes
+				;;
+				*)
+				break
+				;;
+			esac
+		done
+		zrep_init "$@"
+		;;
+	sentsync)
+		shift
+		# Note that this will NOT accept multiple snaps, for safety
+		zrep_sentsync "$@" 
+		;;
+	snaponly)
+		shift
+		zrep_snaponly "$@"
+		;;
+	sync|-S)  #remember, this is inverse of refresh
+		shift
+		while  [ "$1" != "" ] ; do
+			case $1 in
+				"-f")
+				shift
+				ZREP_FORCE=-f
+				;;
+				"-v")
+				shift
+				ZREP_VERBOSE=yes
+				;;
+				"-r")
+				shift
+				ZREP_RESUME=yes
+				;;
+				*)
+				break
+				;;
+			esac
+		done
+		zrep_sync "$@"
+		;;
+	synconly)
+		shift
+		zrep_synconly "$@"
+		;;
+	refresh)	# yes keep this in this order
+		shift
+		while  [ "$1" != "" ] ; do
+			case $1 in
+				"-f")
+				shift
+				ZREP_FORCE=-f
+				;;
+				"-v")
+				shift
+				ZREP_VERBOSE=yes
+				;;
+				"-r")
+				shift
+				ZREP_RESUME=yes
+				;;
+				*)
+				break
+				;;
+			esac
+		done
+		zrep_refresh "$@"
+		;;
+	status|-s)
+		shift
+		zrep_status "$@"
+		;;
+	list|-l)
+		shift
+		zrep_list "$@"
+		;;
+	lastsent|getlastsent)
+		# lastsent is a backward compability hook.
+		shift
+		zrep_getlastsent "$@"
+		;;
+	failover)
+		shift
+		if [[ "$1" == "-f" ]] ; then
+			shift
+			ZREP_FORCE=-f
+		fi
+		zrep_failover "$@"
+		;;
+	setlastsent)
+		shift
+		#zrep_setlastsent "$@"
+		echo Nothing to see here. You might want sentsync. You might not.
+		#  This kind of overlaps with "sentsync". Which may be poorly named
+		#
+		exit 1
+		;;
+	takeover)
+		shift
+		zrep_takeover "$@"
+		;;
+	uptodate)
+		shift
+		zrep_uptodate "$@"
+		exit $?
+		;;
+	version)
+		echo "zrep $ZREP_VERSION"
+		echo "http://www.bolthole.com/solaris/zrep"
+		echo "http://www.github.com/bolthole/zrep"
+		exit
+		;;
+		
+	_refreshpull)  # Secret option DO NOT PUT IN USAGE!!
+		shift
+		_refreshpull $@
+		;;
+	_refreshcomplete)  # Secret option DO NOT PUT IN USAGE!!
+		shift
+		_refreshcomplete $@
+		;;
+	*)
+		print "ERROR: unrecognized zrep subcommand $1"
+		echo  "       Dont know what to do with: $0 $@"
+		print ""
+		usage
+		;;
+esac
+
+
