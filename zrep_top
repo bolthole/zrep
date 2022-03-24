@@ -21,7 +21,7 @@ usage(){
 	print "  (c) Philip Brown, 2012-2020"
 	print 
 	print Simple usage summary:
-	print 'zrep (init|-i) [-v] ZFS/fs remotehost remoteZFSpool/fs'
+	print 'zrep (init|-i) [-f] [-v] ZFS/fs remotehost remoteZFSpool/fs'
 	print 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
 	print 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
 	print 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
@@ -122,10 +122,21 @@ case "$1" in
 		;;
 	init|-i)
 		shift
-		if [[ "$1" == "-v" ]] ; then
-			shift
-			ZREP_VERBOSE=yes
-		fi
+		while  [ "$1" != "" ] ; do
+			case $1 in
+				"-f")
+				shift
+				ZREP_FORCE=-f
+				;;
+				"-v")
+				shift
+				ZREP_VERBOSE=yes
+				;;
+				*)
+				break
+				;;
+			esac
+		done
 		zrep_init "$@"
 		;;
 	sentsync)

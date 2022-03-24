@@ -368,6 +368,11 @@ zrep_init(){
 	typeset mountpoint vflags verbose
 	typeset token
 
+	if [[ "$ZREP_FORCE" != "-f" ]] ; then
+		zrep_ssh $desthost zfs list destfs >/dev/null &&
+			zrep_errquit "$desthost:$destfs already exists! Will not overwrite without -f"
+	fi
+
 	if [[ "$ZREP_VERBOSE" != "" ]] ; then
 		verbose=-v
 	fi
