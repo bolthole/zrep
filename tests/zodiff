@@ -1,0 +1,4 @@
+
+# tool to make it easier to compare master branch to zrep2 branch file
+sed 's/\([\t ]\)print /\1echo /g' ../zrep/$1 >/tmp/$1
+diff /tmp/$1 $1 |less

@@ -20,7 +20,7 @@ usage(){
 	echo zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
 	echo in an ongoing basis.
 	echo 
-	echo "  Philip Brown, 2012-2019"
+	echo "  Philip Brown, 2012-2022"
 	echo 
 	echo Simple usage summary:
 	echo 'zrep (init|-i) [-f] [-v] ZFS/fs remotehost remoteZFSpool/fs'
@@ -28,14 +28,15 @@ usage(){
 	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
 	echo 'zrep (sync|-S) [-f] [-v] ZFS/fs snapshot  -- temporary retroactive sync'
 	echo 'zrep refresh [-f] [-v] ZFS/fs             -- pull partner of sync'
-	echo 'zrep failover [-L] ZFS/fs'
-	echo 'zrep takeover [-L] ZFS/fs'
+	echo 'zrep failover [-L] ZFS/fs [remotehost]'
+	echo 'zrep takeover [-L] ZFS/fs [remotehost]'
 	echo 
 	echo "Status and side operations"
 	echo 'zrep (status|-s) [-v] [(-a|ZFS/fs)]'
+	echo 'zrep (status|-s) -m [ZFS/fs]'
 	echo 'zrep (list|-l) [-Lv]  [fs/names]'
 	echo 'zrep (list|-l) -s     [fs/names]  -- list all relevant zrep snapshots'
-	echo 'zrep lastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
+	echo 'zrep getlastsent ZFS/fs    -- prints out snapshot of last successful sync sent'
 	echo 'zrep (expire|-e) [-L] (ZFS/fs ...)|(all)|()'
 	echo 'zrep uptodate ZFS/fs    -- returns 0 if no writes since last sync.'
 	echo 'zrep version'
@@ -252,9 +253,9 @@ case "$1" in
 		_refreshcomplete $@
 		;;
 	*)
-		print "ERROR: unrecognized zrep subcommand $1"
+		echo "ERROR: unrecognized zrep subcommand $1"
 		echo  "       Dont know what to do with: $0 $@"
-		print ""
+		echo ""
 		usage
 		;;
 esac
