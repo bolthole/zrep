@@ -18,7 +18,7 @@ Note that this is a Korn shell script, so you will need /bin/ksh on your system.
 ## Full documentation
 Many, many more options and features are documented, at
 
- http://www.bolthole.com/solaris/zrep/zrep.documentation.html
+ http://www.bolthole.com/zrep/zrep.documentation.html
 
 Note that to enable bash commandline completion, an additional download is needed;
 
