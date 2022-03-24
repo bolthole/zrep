@@ -565,7 +565,7 @@ zrep_ssh(){
 			ssh_cmd="eval"
 			shift
 			$ssh_cmd "$@"
-			return
+			return $?
 		;;
 	esac
 	
@@ -583,13 +583,13 @@ zrep_ssh(){
 		shift
 		$ssh_cmd "$@"
 
-		return
+		return $?
 	fi
 
 	ssh_cmd="$SSH $1"
 	shift
 	$ssh_cmd "$@"
-	return
+	return $?
 
 }
 
