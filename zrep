@@ -1269,7 +1269,7 @@ zrep_init(){
 	typeset token
 
 	if [[ "$ZREP_FORCE" != "-f" ]] ; then
-		zrep_ssh $desthost zfs list destfs >/dev/null &&
+		zrep_ssh $desthost zfs list $destfs 2>/dev/null &&
 			zrep_errquit "$desthost:$destfs already exists! Will not overwrite without -f"
 	fi
 
