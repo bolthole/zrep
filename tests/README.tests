@@ -1,0 +1,6 @@
+The main test loop is "run_tests.sh"
+
+however, before the first run on a system, you will need to run,
+in this order:
+./setup_pools.sh
+./setup_zrep.sh

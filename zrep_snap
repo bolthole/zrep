@@ -55,7 +55,7 @@ getlastsnapsent(){
 	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $1 |
 	   sort | tail -1`
 	if [[ "$lastsent" != "" ]] ; then
-		print $lastsent
+		echo $lastsent
 		return
 	fi
 
@@ -107,7 +107,7 @@ getunsentcount(){
 		zrep_errquit Error: cannot parse $lastsnap
 	fi
 
-	print $(( $lastsnapseq - $lastsyncedseq ))
+	echo $(( $lastsnapseq - $lastsyncedseq ))
 
 }
 
@@ -120,7 +120,7 @@ getunsentcount(){
 # 
 # In future, may take optional argument of which HOST to check 
 # sync with. But since I currently only suport one host per fs... oh well.
-# If never synced, will return 1, and print ""
+# If never synced, will return 1, and echo ""
 #
 getlastsynctime(){
 	typeset fs lastsent senttime
@@ -137,11 +137,11 @@ getlastsynctime(){
 	lastsent=`zfs get  -H -o name -r -s local ${ZREPTAG}:sent $fs |
 	   sort | tail -1`
 	senttime=`zfs get  -H -o value ${ZREPTAG}:sent $lastsent`
-	if [[ "$senttime" != "" ]] ; then print $senttime ; return 0; fi
+	if [[ "$senttime" != "" ]] ; then echo $senttime ; return 0; fi
 
 	# ooops. try fallback to nasty old zfs-compat style
 	senttime=`zfs get -H -o value ${ZREPTAG}:lastsent $fs`
-	print $senttime
+	echo $senttime
 	if [[ "$senttime" != "" ]] ; then return 0; fi
 	return 1
 }
@@ -207,7 +207,7 @@ makesnap(){
 	check="`$ZFSGETVAL ${ZREPTAG}:src-host $1`"
 	if [[ "$check" != "$Z_LOCAL_HOST" ]] ; then
 		_errprint ERROR: we are not master host for $1
-		_errprint print master is $check, we are $Z_LOCAL_HOST
+		_errprint master is $check, we are $Z_LOCAL_HOST
 		exit 1
 	fi
 
@@ -229,7 +229,7 @@ makesnap(){
 	
 	zfs snapshot $Z_SNAP_R $newsnap
 	if [[ $? -eq 0 ]] ; then
-		print  $newsnap; return 0
+		echo -n $newsnap; return 0
 	else
 		return 1
 	fi
@@ -246,12 +246,12 @@ zrep_clear(){
 		zrep_errquit clear command requires an argument
 	fi
 
-	print "WARNING: Removing all zrep configs and snapshots from $1"
-	print " (for TAG=${ZREPTAG})"
+	echo "WARNING: Removing all zrep configs and snapshots from $1"
+	echo " (for TAG=${ZREPTAG})"
 
 	
 	if [[ "$ZREP_FORCE" != "-f" ]] ; then
-		print Continuing in 10 seconds
+		echo Continuing in 10 seconds
 		sleep 10
 	fi
 
@@ -260,7 +260,7 @@ zrep_clear(){
 }
 
 _clearsnaps(){
-	print Destroying any zrep-related snapshots from $1
+	echo Destroying any zrep-related snapshots from $1
 	snaplist=`list_autosnaps $1`
 	for snap in $snaplist ; do
 		zfs destroy -r $snap
@@ -268,7 +268,7 @@ _clearsnaps(){
 }
 
 _clearvars(){
-	print Removing zrep-related properties from $1
+	echo Removing zrep-related properties from $1
 	proplist=`zfs get -H -o property all $1|grep ${ZREPTAG}:`
 	for prop in $proplist ; do
 		zfs inherit $prop $1
@@ -340,8 +340,8 @@ setfsconfigs(){
 			# With our curent workflow, that can ONLY WORK
 			# if recent versions of ZFS are in use.
 			if (( Z_HAS_REC_U )) ; then
-				print WARNING: forcing override sync to top level pool $desthost:$destfs
-				print Not using a usual sub-filesystem
+				echo WARNING: forcing override sync to top level pool $desthost:$destfs
+				echo Not using a usual sub-filesystem
 				sleep 5
 			else
 				zrep_errquit older zfs version, cannot initialize top level pool
@@ -384,7 +384,7 @@ zrep_init(){
 	#sanity checks
 	check="`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`"
 	if [[ "$check" != "-" ]] ; then
-		print "$srcfs is at least partially configured by zrep"
+		echo "$srcfs is at least partially configured by zrep"
 		check="`$ZFSGETLVAL ${ZREPTAG}:master $srcfs`"
 		if [[ "$check" != "" ]] ; then
 			zrep_errquit "${ZREPTAG}:master detected!!"
@@ -405,7 +405,7 @@ zrep_init(){
 			zrep_errquit Partial init of $src detected but no resume token found. Suggest you zrep clear and start again
 		fi
 
-		print "Partially complete init detected. Attempting to resume send"
+		echo "Partially complete init detected. Attempting to resume send"
 
 		if [[ "$BBCP" != "" ]] ; then
 			SENDCMD="zfs send -t $token ${ZREP_RESUME_FLAGS}"
@@ -454,7 +454,7 @@ zrep_init(){
 			recv_s=-s
 		fi
 
-		print Setting zrep properties on $srcfs
+		echo Setting zrep properties on $srcfs
 		setfsconfigs $srcfs $desthost $destfs
 
 		#setfsconfigs may do some "smarts" to adjust value, so get it again.
@@ -465,10 +465,10 @@ zrep_init(){
 			READONLYPROP="-o readonly=on"
 		else
 			READONLYPROP=""
-			print Warning: zfs recv lacking -o readonly
+			echo Warning: zfs recv lacking -o readonly
 		fi
 		if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
-			print Creating  destination filesystem as separate step
+			echo Creating  destination filesystem as separate step
 			# normally would want to use -o readonly here.
 			# however, that breaks when -R is used.
 			# set it after transfer instead
@@ -476,15 +476,14 @@ zrep_init(){
 		fi
 
 		snap="${srcfs}@${ZREPTAG}_000000"
-		print Creating snapshot $snap
+		echo Creating snapshot $snap
 		zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
 
 		# Note that we may not want to use -p for normal zrep syncs
 		# We also should not use -F for normal recv. See workflow.txt
 		# Note: we may have to reset readonly=on, if we used -p on send...
 		#
-		print Sending initial replication stream to $desthost:$destfs
-
+		echo Sending initial replication stream to $desthost:$destfs
 		if (( Z_HAS_REC_U )) ; then
 			# This is the nice, clean, modern codepath, to send
 			# zrep settings over automatically at first init.
@@ -546,7 +545,7 @@ zrep_init(){
 
 	fi
 	if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
-		print setting readonly on $desthost:$destfs manually
+		echo setting readonly on $desthost:$destfs manually
 		zrep_ssh $desthost zfs set readonly=on $destfs
 	fi
 
@@ -571,7 +570,7 @@ zrep_init(){
 		zrep_ssh $desthost zfs set ${ZREPTAG}:lastsent=${snap} $destfs
 	fi
 	if [[ "$mountpoint" != "" ]] ; then
-		print "clearing mountpoint value for remote"
+		echo "clearing mountpoint value for remote"
 		zrep_ssh $desthost zfs inherit mountpoint $destfs
 	fi
 
@@ -587,9 +586,9 @@ zrep_init(){
 	#  Make sure value this matches zrep_sentsync
 	zfs set ${ZREPTAG}:master=yes	$srcfs
 
-	print Initialization copy of $srcfs to $desthost:$destfs complete
+	echo Initialization copy of $srcfs to $desthost:$destfs complete
 	if (( Z_HAS_REC_U )) ; then
-		print Filesystem will not be mounted
+		echo Filesystem will not be mounted
 	fi
 
 }

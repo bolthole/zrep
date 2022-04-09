@@ -1,0 +1,14 @@
+Notes on things that had to be done to convert zrep
+from ksh to bash
+
+- Replace print with echo
+
+- for some function outputs, forced use of "echo -n" instead of just echo
+
+- for printf %(xx)T "#seconds", convert to
+  printf %(xx)T "seconds"
+
+- also printf T:
+   printf '%(%s)T' now
+  becomes
+   printf '%(%s)T'
