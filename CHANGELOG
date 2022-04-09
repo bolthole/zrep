@@ -160,3 +160,16 @@ version 1.7.7
 version 1.8.0
 	added zrep lastsent
 	bugfixes for resume
+
+version 1.9.0
+	(fork of original v1)
+	added check for /etc/default/zrep
+	added ZREP_CREATE_FLAGS and ZREP_INIT_REMOTE_PROPERTIES
+	fixed definition of ZREP_SEND_FLAGS
+	added ZREP_DATEFORMAT
+	added ZREP_R fixes
+	added zrep status -m
+	more resume tweaks
+	fixes for zrep refresh and allowed zrep -R refresh
+	safeguard check for zrep takeover
+	fixed an expire bug	

@@ -3,7 +3,7 @@
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
 
 # note to self: always make this 3 fields
-ZREP_VERSION=1.8.0
+ZREP_VERSION=1.9.0
 
 ######## start of included files from zrep_top here
 ########### File: zrep_vars
