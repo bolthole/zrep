@@ -1,4 +1,4 @@
-j#!/bin/bash --noprofile
+#!/bin/bash --noprofile
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
 # note to self: always make this 3 fields
