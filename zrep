@@ -687,15 +687,15 @@ zrep_status(){
 			date="[NEVER]"
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
-			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
-			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" "$sentseconds"`
-			vdate=${date%:*}
+				typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
+				date=`printf "%(${ZREP_DATEFORMAT})T" "$sentseconds"`
+				vdate=${date%:*}
 			fi
 
 			#This is also a fallback for no-perl FreeBSD systems
 			if [[ "$vdate" == "" ]] ; then
-			date=`$ZFSGETVAL creation $lastsynced`
-			vdate=${date#????}
+				date=`$ZFSGETVAL creation $lastsynced`
+				vdate=${date#????}
 			fi
 		fi
 		if ((printall)) && ((verbose)) ; then
@@ -1368,7 +1368,7 @@ zrep_init(){
 			echo Warning: zfs recv lacking -o readonly
 		fi
 		if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
-			echo Creating  destination filesystem as separate step
+			echo Creating destination filesystem as separate step
 			# normally would want to use -o readonly here.
 			# however, that breaks when -R is used.
 			# set it after transfer instead
@@ -2612,7 +2612,7 @@ zrep_takeover(){
 	# Since we default to creating replicas unmounted... mount it now
 	if [[ "`$ZFSGETVAL type $fs`" == "filesystem" ]] ; then
 		if [[ "`$ZFSGETVAL mounted $fs`" == "no" ]] ; then
-				echo eMounting $Z_LOCAL_HOST:$fs
+				echo Mounting $Z_LOCAL_HOST:$fs
 				zfs mount $fs
 		fi
 	fi

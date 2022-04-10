@@ -187,7 +187,7 @@ zrep_takeover(){
 	# Since we default to creating replicas unmounted... mount it now
 	if [[ "`$ZFSGETVAL type $fs`" == "filesystem" ]] ; then
 		if [[ "`$ZFSGETVAL mounted $fs`" == "no" ]] ; then
-				echo eMounting $Z_LOCAL_HOST:$fs
+				echo Mounting $Z_LOCAL_HOST:$fs
 				zfs mount $fs
 		fi
 	fi

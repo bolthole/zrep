@@ -468,7 +468,7 @@ zrep_init(){
 			echo Warning: zfs recv lacking -o readonly
 		fi
 		if [[ "$ZREP_CREATE_FLAGS" != "" ]]  || [[ "$READONLYPROP" == "" ]] ; then
-			echo Creating  destination filesystem as separate step
+			echo Creating destination filesystem as separate step
 			# normally would want to use -o readonly here.
 			# however, that breaks when -R is used.
 			# set it after transfer instead
