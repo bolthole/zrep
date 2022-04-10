@@ -2,7 +2,7 @@
 Name:        zrep
 
 # change version AND nversion to "master" to get latest raw git commits
-%define nversion    2.0.0
+%define nversion    2.0.1
 
 #this would need to be updated for every version as well, if it actualy worked
 %global commit e02f8ba5475c8d45ebfb09d8c53021a3d2dab537

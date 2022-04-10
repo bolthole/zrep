@@ -177,3 +177,5 @@ version 2.0
         fixed an expire bug
 	CONVERTED TO USE BASH!!!
 
+version 2.0.1 # not released yet
+	fix zrep status output

@@ -1,8 +1,8 @@
-#!/bin/bash --noprofile
+j#!/bin/bash --noprofile
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
 # note to self: always make this 3 fields
-ZREP_VERSION=2.0.0
+ZREP_VERSION=2.0.1
 
 ################################################
 
@@ -687,8 +687,8 @@ zrep_status(){
 			date="[NEVER]"
 		else
 			if (( Z_HAS_SNAPPROPS )) ; then
-			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsnap`
-			date=`printf "%(%Y/%m/%d-%H:%M:%S)T" "$sentseconds"`
+			typeset sentseconds=`$ZFSGETVAL ${ZREPTAG}:sent $lastsynced`
+			date=`printf "%(${ZREP_DATEFORMAT})T" "$sentseconds"`
 			vdate=${date%:*}
 			fi
 
