@@ -466,6 +466,9 @@ zrep_sync(){
 	# Special Case. User can force sync from specific snapshot
 	case $1 in
 		*@*)
+			srcfs="$1" 
+			desthost=`$ZFSGETVAL ${ZREPTAG}:dest-host $srcfs`
+			destfs=`$ZFSGETVAL ${ZREPTAG}:dest-fs $srcfs`
 			synctosnap $srcfs $destfs $desthost
 			return
 			;;
