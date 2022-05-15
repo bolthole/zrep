@@ -2,7 +2,7 @@
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
 # note to self: always make this 3 fields
-ZREP_VERSION=2.0.1
+ZREP_VERSION=2.0.2
 
 ################################################
 

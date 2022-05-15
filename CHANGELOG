@@ -179,3 +179,6 @@ version 2.0
 
 version 2.0.1 # not released yet
 	fix zrep status output
+
+version 2.0.2
+	fix synx fs@snap bug
