@@ -228,22 +228,6 @@ else
 	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
 fi
 
-
-# Slightly ugly to implement this as a global flag. But... it makes 
-# a lot of things simpler, like "ssh zrep xyhz" for multiple things.
-if [[ "$1" == "-R" ]] ; then
-	ZREP_R="-R"
-	shift
-fi
-
-if [[ "$ZREP_R" == "-R" ]] ; then
-	# ZREP_R is a user-settable env var. It also gets used in
-	# "zfs send"  commandlines.  However.. we also need to call
-	# "zfs snap".. which requires LOWERCASE R. So this is an automatically set
-	# mirror of that.
-	Z_SNAP_R="-r"
-fi
-
 if [[ "$MBUFFER" != "" ]] ; then
 	_errprint WARNING: MBUFER variable deprecated in zrep
 	_errprint WARNING: use ZREP_OUTFILTER and ZREP_INFILTER instead
@@ -2677,7 +2661,7 @@ usage(){
 #
 # Special global flags that must always be processed FIRST, before normal command args.
 #
-while [[ "$1" == -[tD] ]] ; do
+while [[ "$1" == -[tDR] ]] ; do
 	case "$1" in
 	    -D)
 		DEBUG=1
@@ -2692,8 +2676,12 @@ while [[ "$1" == -[tD] ]] ; do
 		shift
 		shift
 		;;
+		-R)
+		ZREP_R="-R"
+		shift
+		;;
 	esac
-done	
+done
 
 
 if [[ "$ZREPTAG" != "zrep" ]] ; then
@@ -2708,6 +2696,13 @@ fi
 # ensure it is set to SOMETHING by default. Default is to send all
 ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
+if [[ "$ZREP_R" == "-R" ]] ; then
+	# ZREP_R is a user-settable env var. It also gets used in
+	# "zfs send"  commandlines.  However.. we also need to call
+	# "zfs snap".. which requires LOWERCASE R. So this is an automatically set
+	# mirror of that.
+	Z_SNAP_R="-r"
+fi
 
 
 
