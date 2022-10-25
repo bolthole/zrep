@@ -66,7 +66,7 @@ usage(){
 #
 # Special global flags that must always be processed FIRST, before normal command args.
 #
-while [[ "$1" == -[tD] ]] ; do
+while [[ "$1" == -[tDR] ]] ; do
 	case "$1" in
 	    -D)
 		DEBUG=1
@@ -81,8 +81,12 @@ while [[ "$1" == -[tD] ]] ; do
 		shift
 		shift
 		;;
+		-R)
+		ZREP_R="-R"
+		shift
+		;;
 	esac
-done	
+done
 
 
 if [[ "$ZREPTAG" != "zrep" ]] ; then
@@ -97,6 +101,13 @@ fi
 # ensure it is set to SOMETHING by default. Default is to send all
 ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
+if [[ "$ZREP_R" == "-R" ]] ; then
+	# ZREP_R is a user-settable env var. It also gets used in
+	# "zfs send"  commandlines.  However.. we also need to call
+	# "zfs snap".. which requires LOWERCASE R. So this is an automatically set
+	# mirror of that.
+	Z_SNAP_R="-r"
+fi
 
 
 
