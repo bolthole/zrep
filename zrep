@@ -1379,6 +1379,13 @@ zrep_init(){
 		echo Creating snapshot $snap
 		zfs snapshot $Z_SNAP_R $snap || clearquit $srcfs "Cannot create initial snapshot $snap"
 
+		# Set --raw zfs send flag for encrypted filesystem, if 
+		# $ZREP_SEND_FLAGS was not already defined.
+		encryption=`$ZFSGETVAL encryption $srcfs`
+		if [[ "$encryption" != "off" ]]; then
+			ZREP_SEND_FLAGS=${ZREP_SEND_FLAGS:---raw}
+		fi
+
 		# Note that we may not want to use -p for normal zrep syncs
 		# We also should not use -F for normal recv. See workflow.txt
 		# Note: we may have to reset readonly=on, if we used -p on send...
@@ -1826,6 +1833,13 @@ _sync(){
 	if [[ "$ZREP_RESUME" != "" ]] ; then
 		token=`zrep_ssh $desthost $ZFSGETVAL receive_resume_token $destfs`
 		if [[ "$token" == "-" ]] ; then token="" ; fi
+	fi
+
+	# Always set --raw zfs send flag for encrypted filesystem, if 
+	# $ZREP_SEND_FLAGS was not already defined.
+	encryption=`$ZFSGETVAL encryption $srcfs`
+	if [[ "$encryption" != "off" ]]; then
+		ZREP_SEND_FLAGS=${ZREP_SEND_FLAGS:---raw}
 	fi
 
 	# Note: doing "-o $senttimeprop" sets prop on FILESYSTEM, not snap.
