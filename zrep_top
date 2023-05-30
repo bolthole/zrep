@@ -2,10 +2,11 @@
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
 # note to self: always make this 3 fields
-ZREP_VERSION=2.0.2
+ZREP_VERSION=2.1.0
 
 ################################################
 
+#### File: zrep_top
 
 ######## start of included files from zrep_top here
 AWKinclude zrep_vars
@@ -14,15 +15,15 @@ AWKinclude zrep_snap
 AWKinclude zrep_sync
 AWKinclude zrep_failover
 
-######## zrep_top continues here
+######## File: zrep_top continues here
 
 usage(){
 	echo zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
 	echo in an ongoing basis.
 	echo 
-	echo "  Philip Brown, 2012-2022"
+	echo "  Philip Brown, 2012-2023"
 	echo 
-	echo Simple usage summary:
+	echo Usage summary:
 	echo 'zrep (init|-i) [-f] [-v] ZFS/fs remotehost remoteZFSpool/fs'
 	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
 	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
@@ -44,7 +45,7 @@ usage(){
 	echo 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	echo 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	echo ''
-	echo '   -q option to sync says to Quietly ignore locked filesystems'
+	echo '   sync -q option says to Quietly ignore locked filesystems'
 	echo '    that have synced more recently than the given amount of seconds'
 	echo ''
 	echo 'Paired commands for high-transaction systems:'
@@ -63,13 +64,21 @@ usage(){
 	echo 'See the above documentation for details on using the -t flag to use zrep tags'
 }
 
+GLOBALFLAGS=""
 #
 # Special global flags that must always be processed FIRST, before normal command args.
 #
-while [[ "$1" == -[tD] ]] ; do
+while [[ "$1" == -[tDR] ]] ; do
 	case "$1" in
 	    -D)
 		DEBUG=1
+		GLOBALFLAGS=-D
+		shift
+		;;
+	    -R)
+		# If you want to recursively create/send snapshots
+		ZREP_R=-R
+		GLOBALFLAGS+=" -R"
 		shift
 		;;
 	    -t)
@@ -80,11 +89,46 @@ while [[ "$1" == -[tD] ]] ; do
 		ZREPTAG=$2
 		shift
 		shift
+		GLOBALFLAGS+=" -t $ZREPTAG"
 		;;
 	esac
-done	
+done
+
+# Backward compatibility hack
+if [[ "ZREP_R" != "" ]] && [[ "$GLOBALFLAGS" != *"-R"* ]] ; then
+	GLOBALFLAGS+=" -R"
+fi
+
+## Arg. Maybe I should standardize on longopts.
+## Useful here, but I hate the extra typing
+## This section, is for longopt parsing. zrep currently uses these
+## ONLY for global options.
+## These will get passed to any remote invocation of zrep.
+## (This is neccessary because "ssh remotehost zrep" does not
+## pass through environment vars
+## Therre are probably a few historical options that should be 
+## migrated to use this now
+while [[ "$1" == "--" ]] ; do
+	case "$1" in
+		--allincrementals)
+			GLOBALFLAGS+="$1"
+			ZREP_INC_FLAG="-I"
+			shift
+		;;
+		--notallincrementals)
+			GLOBALFLAGS+="$1"
+			ZREP_INC_FLAG="-i"
+			shift
+		;;
+		*)
+			echo error: unrecognized flag $1
+		;;
+	esac
+done
 
 
+
+# Special polymorphic handling that must be done HERE specifically
 if [[ "$ZREPTAG" != "zrep" ]] ; then
 	# If custom zrep tag, then probably multiple layers of snapshots.
 	# In this case, DO NOT send all intermediate snapshots for replication
@@ -99,6 +143,9 @@ ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
 
 
+# yes, a by-hand variant of getopt
+# This is only because I prefer "longoption" to "--longoption"
+# Although most of these are actually subcommands, not "options"
 
 case "$1" in
 	"")

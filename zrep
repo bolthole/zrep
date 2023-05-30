@@ -2,10 +2,11 @@
 
 # For more detailed documentation, see zrep.txt or zrep.overview.txt
 # note to self: always make this 3 fields
-ZREP_VERSION=2.0.2
+ZREP_VERSION=2.1.0
 
 ################################################
 
+#### File: zrep_top
 
 ######## start of included files from zrep_top here
 ########### File: zrep_vars
@@ -87,11 +88,6 @@ ZREP_RENAME_UNSENT=${ZREP_RENAME_UNSENT:-yes}
 # ZREP_OUTFILTER="mbuffer -q -m 1G -s 128k"
 # ZREP_INFILTER="mbuffer -q -m 1G -s 128k"
 
-
-
-# If you want to recursively create/send snapshots, set this to -R
-#  (or use the -R option to BOTH zrep init and zrep sync
-#ZREP_R=-R
 
 
 # Sometimes, people may want to add extra flags to "zfs send".
@@ -228,13 +224,6 @@ else
 	Z_LOCAL_HOST=${Z_LOCAL_HOST%%.*}
 fi
 
-
-# Slightly ugly to implement this as a global flag. But... it makes 
-# a lot of things simpler, like "ssh zrep xyhz" for multiple things.
-if [[ "$1" == "-R" ]] ; then
-	ZREP_R="-R"
-	shift
-fi
 
 if [[ "$ZREP_R" == "-R" ]] ; then
 	# ZREP_R is a user-settable env var. It also gets used in
@@ -573,6 +562,8 @@ zrep_errquit(){
 # Just run the local command mentioned
 # Be careful about quotes here. In fact, try not to use any.
 # Usage:  zrep_ssh desthost  commands_for_ssh go_here
+# Note also that we SPECIAL-CASE ssh zrep calls
+# We check for that by comparing $2==$ZREP_PATH
 zrep_ssh(){
 	typeset ssh_cmd
 
@@ -585,25 +576,19 @@ zrep_ssh(){
 		;;
 	esac
 	
-	if [[ "$2" == "$ZREP_PATH "* ]] && [[ "$DEBUG" != "" ]]
+	# We drastically changed how we pass through debug flag here.
+	# Because of this, dont quote the 2nd arg to this, I think
+	if [[ "$2" == "$ZREP_PATH" ]]
 	then
-		#okay yes this is horrible. sigh.
-		#we normally go to great lengths to preserve ssh arg as single quoted string,
-		# to identically match passed in arg quoting.
-		#but this next line undoes that
-	    
-		set -- $*
-
-		ssh_cmd="$SSH $1 $ZREP_PATH -D"
+		ssh_cmd="$SSH $1 $ZREP_PATH $GLOBALFLAGS"
 		shift
 		shift
-		$ssh_cmd "$@"
-
-		return $?
+	else
+		ssh_cmd="$SSH $1"
+		shift
 	fi
 
-	ssh_cmd="$SSH $1"
-	shift
+
 	$ssh_cmd "$@"
 	return $?
 
@@ -2116,7 +2101,7 @@ zrep_refresh(){
 	fi
 
 	_debugprint refresh step 1: Going to $srchost to snapshot $destfs
-	newsnap=`zrep_ssh $srchost $ZREP_PATH ${ZREP_R} snaponly $srcfs`
+	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
 	fi
@@ -2142,7 +2127,7 @@ zrep_refresh(){
 		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH ${ZREP_R} _refreshpull $newsnap $token ${Z_F_OUT}" |
+		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT} |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
@@ -2163,7 +2148,7 @@ zrep_refresh(){
 
 	_debugprint Running remote expires on $srcfs
 	sleep 1  # avoid race condition on samehost situation
-	zrep_ssh $srchost "$ZREP_PATH expire -L $srcfs"
+	zrep_ssh $srchost $ZREP_PATH expire -L $srcfs
 
 	zrep_unlock_fs $destfs
 
@@ -2379,7 +2364,7 @@ _expire(){
 		zrep_errquit "ERROR: Split brain scenario detected"
 	fi
 
-	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||echo REMOTE expire failed
+	zrep_ssh $remotehost $ZREP_PATH expire $remotefs ||echo REMOTE expire failed
 }
 
 
@@ -2625,15 +2610,15 @@ zrep_takeover(){
 
 }
 
-######## zrep_top continues here
+######## File: zrep_top continues here
 
 usage(){
 	echo zrep v${ZREP_VERSION}: a program to replicate a zfs filesystem to another
 	echo in an ongoing basis.
 	echo 
-	echo "  Philip Brown, 2012-2022"
+	echo "  Philip Brown, 2012-2023"
 	echo 
-	echo Simple usage summary:
+	echo Usage summary:
 	echo 'zrep (init|-i) [-f] [-v] ZFS/fs remotehost remoteZFSpool/fs'
 	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] ZFS/fs'
 	echo 'zrep (sync|-S) [-f] [-v] [-q seconds] all'
@@ -2655,7 +2640,7 @@ usage(){
 	echo 'zrep (changeconfig|-C) [-f] ZFS/fs remotehost remoteZFSpool/fs'
 	echo 'zrep (changeconfig|-C) [-f] [-d] ZFS/fs srchost srcZFSpool/fs'
 	echo ''
-	echo '   -q option to sync says to Quietly ignore locked filesystems'
+	echo '   sync -q option says to Quietly ignore locked filesystems'
 	echo '    that have synced more recently than the given amount of seconds'
 	echo ''
 	echo 'Paired commands for high-transaction systems:'
@@ -2674,13 +2659,21 @@ usage(){
 	echo 'See the above documentation for details on using the -t flag to use zrep tags'
 }
 
+GLOBALFLAGS=""
 #
 # Special global flags that must always be processed FIRST, before normal command args.
 #
-while [[ "$1" == -[tD] ]] ; do
+while [[ "$1" == -[tDR] ]] ; do
 	case "$1" in
 	    -D)
 		DEBUG=1
+		GLOBALFLAGS=-D
+		shift
+		;;
+	    -R)
+		# If you want to recursively create/send snapshots
+		ZREP_R=-R
+		GLOBALFLAGS+=" -R"
 		shift
 		;;
 	    -t)
@@ -2691,11 +2684,46 @@ while [[ "$1" == -[tD] ]] ; do
 		ZREPTAG=$2
 		shift
 		shift
+		GLOBALFLAGS+=" -t $ZREPTAG"
 		;;
 	esac
-done	
+done
+
+# Backward compatibility hack
+if [[ "ZREP_R" != "" ]] && [[ "$GLOBALFLAGS" != *"-R"* ]] ; then
+	GLOBALFLAGS+=" -R"
+fi
+
+## Arg. Maybe I should standardize on longopts.
+## Useful here, but I hate the extra typing
+## This section, is for longopt parsing. zrep currently uses these
+## ONLY for global options.
+## These will get passed to any remote invocation of zrep.
+## (This is neccessary because "ssh remotehost zrep" does not
+## pass through environment vars
+## Therre are probably a few historical options that should be 
+## migrated to use this now
+while [[ "$1" == "--" ]] ; do
+	case "$1" in
+		--allincrementals)
+			GLOBALFLAGS+="$1"
+			ZREP_INC_FLAG="-I"
+			shift
+		;;
+		--notallincrementals)
+			GLOBALFLAGS+="$1"
+			ZREP_INC_FLAG="-i"
+			shift
+		;;
+		*)
+			echo error: unrecognized flag $1
+		;;
+	esac
+done
 
 
+
+# Special polymorphic handling that must be done HERE specifically
 if [[ "$ZREPTAG" != "zrep" ]] ; then
 	# If custom zrep tag, then probably multiple layers of snapshots.
 	# In this case, DO NOT send all intermediate snapshots for replication
@@ -2710,6 +2738,9 @@ ZREP_INC_FLAG=${ZREP_INC_FLAG:-"-I"}
 
 
 
+# yes, a by-hand variant of getopt
+# This is only because I prefer "longoption" to "--longoption"
+# Although most of these are actually subcommands, not "options"
 
 case "$1" in
 	"")

@@ -594,7 +594,7 @@ zrep_refresh(){
 	fi
 
 	_debugprint refresh step 1: Going to $srchost to snapshot $destfs
-	newsnap=`zrep_ssh $srchost $ZREP_PATH ${ZREP_R} snaponly $srcfs`
+	newsnap=`zrep_ssh $srchost $ZREP_PATH snaponly $srcfs`
 	if [[ $? -ne 0 ]] ; then
 		zrep_errquit snap of src $srcfs on $srchost failed
 	fi
@@ -620,7 +620,7 @@ zrep_refresh(){
 		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH ${ZREP_R} _refreshpull $newsnap $token ${Z_F_OUT}" |
+		zrep_ssh $srchost $ZREP_PATH _refreshpull $newsnap $token ${Z_F_OUT} |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
@@ -641,7 +641,7 @@ zrep_refresh(){
 
 	_debugprint Running remote expires on $srcfs
 	sleep 1  # avoid race condition on samehost situation
-	zrep_ssh $srchost "$ZREP_PATH expire -L $srcfs"
+	zrep_ssh $srchost $ZREP_PATH expire -L $srcfs
 
 	zrep_unlock_fs $destfs
 
@@ -857,7 +857,7 @@ _expire(){
 		zrep_errquit "ERROR: Split brain scenario detected"
 	fi
 
-	zrep_ssh $remotehost "$ZREP_PATH expire $remotefs" ||echo REMOTE expire failed
+	zrep_ssh $remotehost $ZREP_PATH expire $remotefs ||echo REMOTE expire failed
 }
 
 
