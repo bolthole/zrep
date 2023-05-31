@@ -562,7 +562,8 @@ zrep_errquit(){
 # Just run the local command mentioned
 # Be careful about quotes here. In fact, try not to use any.
 # Usage:  zrep_ssh desthost  commands_for_ssh go_here
-# Note also that we SPECIAL-CASE ssh zrep calls
+# Note also that we SPECIAL-CASE ssh zrep calls, in order to 
+# pass global variables to the other side
 # We check for that by comparing $2==$ZREP_PATH
 zrep_ssh(){
 	typeset ssh_cmd
@@ -2662,6 +2663,7 @@ usage(){
 GLOBALFLAGS=""
 #
 # Special global flags that must always be processed FIRST, before normal command args.
+# But maybe I should transition global flags to --longarg format
 #
 while [[ "$1" == -[tDR] ]] ; do
 	case "$1" in
@@ -2676,7 +2678,7 @@ while [[ "$1" == -[tDR] ]] ; do
 		GLOBALFLAGS+=" -R"
 		shift
 		;;
-	    -t)
+	    -t)  # or use --tag
 		if [ "$2" == "" ] ; then
 		usage
 		fi
@@ -2713,6 +2715,17 @@ while [[ "$1" == "--" ]] ; do
 		--notallincrementals)
 			GLOBALFLAGS+="$1"
 			ZREP_INC_FLAG="-i"
+			shift
+		;;
+		--debug)
+			GLOBALFLAGS+="$1"
+			DEBUG=1
+			shift
+		;;
+		--tag)
+			GLOBALFLAGS+="$1 $2"
+			ZREPTAG=$2
+			shift
 			shift
 		;;
 		*)
