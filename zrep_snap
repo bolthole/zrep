@@ -301,7 +301,8 @@ clearquit(){
 # Usage: 
 #  setfsconfigs srcfs desthost destfs
 #  setfsconfigs -d destfs srchost srcfs
-#
+# (-d indicates we are running on the desthost)
+# 
 setfsconfigs(){
 	typeset srchost srcfs desthost destfs fsname
 
@@ -601,7 +602,13 @@ zrep_changeconfig(){
 		setfsconfigs $@
 		return 
 	fi
-	typeset srcfs="$1" check
+
+	typeset srcfs check
+	if [[ "$1" == "-d" ]] ; then
+		srcfs="$2"
+	else
+		srcfs="$1"
+	fi
 	
 	if [[ "$srcfs" == "" ]] ; then
 		zrep_errquit "zrep: no fs specified"
