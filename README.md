@@ -13,7 +13,6 @@ Step 2: zrep -i pool1/prodfs host2 destpool/prodfs
 Step 3: (put in cron, every minute if you like)  zrep -S pool1/prodfs
 
 And you're done!  At least with a super-simple implementation.
-Note that this is a Korn shell script, so you will need /bin/ksh on your system.
 
 ## Full documentation
 Many, many more options and features are documented, at
