@@ -617,10 +617,10 @@ zrep_refresh(){
 	fi
 
 	if [[ "$BBCP" != "" ]] ; then
-		$BBCP -N io "$srchost:$ZREP_PATH _refreshpull $newsnap $token" \
+		$BBCP -N io "$srchost:$ZREP_PATH ${ZREP_R} _refreshpull ${ZREP_INC_FLAG} $newsnap $token" \
 		  "zfs recv $force $destfs"
 	else
-		zrep_ssh $srchost "$ZREP_PATH ${ZREP_R} _refreshpull $newsnap $token ${Z_F_OUT}" |
+		zrep_ssh $srchost "$ZREP_PATH ${ZREP_R} _refreshpull ${ZREP_INC_FLAG} $newsnap $token ${Z_F_OUT}" |
 		  eval ${Z_F_IN} zfs recv $force $destfs
 	fi
 	if [[ $? -ne 0 ]] ; then
@@ -662,6 +662,13 @@ zrep_refresh(){
 _refreshpull(){
 	typeset fs snapname lastsent latest verbose
 	typeset token=""
+
+	case "$1" in
+		-i|-I)
+		ZREP_INC_FLAG=$1
+		shift
+		;;
+	esac
 
 	if [[ "$2" != "" ]] ; then
 		token="$2"
