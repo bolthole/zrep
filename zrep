@@ -24,6 +24,10 @@ ZREP_VERSION=2.1.0
 #   VAR=${VAR:-yourvalue}
 #
 
+# Solaris bug workaround:
+# See https://github.com/bolthole/zrep/issues/207
+export DEPTHCAP="-d 0"
+
 if [[ -f /etc/default/zrep ]] ; then
 	. /etc/default/zrep
 fi
